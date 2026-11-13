@@ -6,9 +6,9 @@ Calendar mantiene conexiones personales cifradas. Drive guarda respaldos cifrado
 
 El cron diario se declara en vercel.json. Las APIs de datos, Calendar, respaldos y trabajos requieren autenticación o el secreto de cron correspondiente.
 
-Las referencias institucionales de respaldo se guardan únicamente en la variable secreta de producción DU_PRIVATE_REFERENCE_DATA, sin prefijos VITE_. El servidor solo completa propiedades ausentes en registros que la cuenta institucional ya obtuvo del Tablero mediante sus permisos. Los valores existentes, incluidos vacíos y null explícitos, siguen siendo autoritativos. No se añaden filas ni columnas que la consulta no solicitó. Este respaldo privado conserva las referencias anteriores mientras se completan los campos canónicos de Supabase; no sustituye ni modifica esos registros automáticamente.
+Las cifras educativas y los estados de obras se leen de los registros existentes de Supabase mediante el ingreso institucional y los permisos del Tablero. No hay cifras ni semáforos reales de respaldo en el cliente ni en la configuración del servidor. Ante una ausencia, la app muestra un estado neutro en lugar de inventar valores. La edición conserva los registros originales y su sincronización entre ambas apps.
 
-GET /api/gestion/security-check permite a un integrante autenticado comprobar la presencia de datos almacenados y si existe la referencia privada. Devuelve únicamente cantidades y booleanos; no expone valores, nombres, identificadores ni credenciales. La comprobación de presencia no certifica por sí sola la configuración completa de RLS.
+GET /api/gestion/security-check permite a un integrante autenticado comprobar la presencia de datos almacenados. Devuelve únicamente cantidades, booleanos y la fuente de datos; no expone valores, nombres, identificadores ni credenciales. La comprobación de presencia no certifica por sí sola la configuración completa de RLS.
 
 Nunca guardar los valores institucionales en el código, tests, documentación, HTML, JSON estáticos, variables públicas ni logs de compilación. Usar datos ficticios en las pruebas. Un cambio del código actual no limpia automáticamente el historial ni las publicaciones anteriores.
 

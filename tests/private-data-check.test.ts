@@ -7,9 +7,6 @@ import {managementUrl,managementPublishableKey} from '../shared/management-confi
 import {teamRequest} from '../server/team.ts';
 import {institutionalState} from '../shared/team.ts';
 
-// This worker uses synthetic private references only; it never reads a real secret value.
-delete process.env.DU_PRIVATE_REFERENCE_DATA;
-
 const config={origin:'https://du.example.edu',supabaseUrl:'https://du-fixture.supabase.co',publishableKey:'public-fixture',secretKey:'fixture-admin-credential',workspaceId:'du-check-fixture'};
 const identity={id:'fixture-du-user',email:'member@example.edu',provider:'google' as const,verified:true as const};
 const boardUser={id:'fixture-board-user',email:identity.email,email_confirmed_at:'2026-11-13',app_metadata:{provider:'google'},identities:[{provider:'google',identity_data:{email:identity.email,email_verified:true}}]} as unknown as User;
@@ -59,7 +56,7 @@ function source(options:{cap?:number;headers?:boolean;changed?:boolean;denied?:n
   const url=new URL(String(input));assert.equal(url.origin,managementUrl);assert.equal(init?.method??'GET','GET');assert.equal(init?.redirect,'error');const headers=new Headers(init?.headers);assert.equal(headers.get('authorization'),'Bearer '+token);assert.equal(headers.get('apikey'),managementPublishableKey);assert.notEqual(headers.get('apikey'),config.secretKey);
   const table=url.pathname.split('/').at(-1)!;
   if(table==='du_management_revisions'){revisionReads++;return Response.json([{...revisions(),projects_revision:options.changed&&revisionReads>1?1:0}]);}
-  assert.ok(['projects','special_views'].includes(table));assert.equal(url.searchParams.get('order'),'id.asc');assert.equal(url.searchParams.get('select'),table==='projects'?'id,name,visual_metrics':'id,view_key,title,payload');assert.equal(headers.get('prefer'),'count=exact');
+  assert.ok(['projects','special_views'].includes(table));assert.equal(url.searchParams.get('order'),'id.asc');assert.equal(url.searchParams.get('select'),table==='projects'?'id,name,visual_metrics,primary_area:areas!projects_primary_area_id_fkey(area_key),project_areas(area:areas!project_areas_area_id_fkey(area_key))':'id,project_id,view_key,title,payload');assert.equal(headers.get('prefer'),'count=exact');
   const offset=Number(url.searchParams.get('offset'));calls.push({table,offset,method:init?.method??'GET',headers});
   if(options.denied)return Response.json({error:options.privateError?'synthetic-private-error-detail': 'Denied'},{status:options.denied});
   const all=table==='projects'?projects:views,rows=all.slice(options.duplicate?0:offset,(options.duplicate?0:offset)+(options.cap??1));
@@ -81,7 +78,7 @@ test('Páginas repetidas, respuestas malformadas o denegadas no terminan en fals
 });
 test('El endpoint permite al integrante autorizado comprobar sin exportar identidad ni referencia privada',async()=>{
  const s=source({headers:true}),response=await managementRequest(checkRequest(),config,identity,()=>auth() as any,s.transport,false);
- assert.equal(response.status,200);assert.match(response.headers.get('cache-control')??'',/private.*no-store/);assert.equal(response.headers.get('vary'),'Cookie');const report=await response.json();assert.equal(report.complete,true);assert.ok(valuesAreCountsOnly(report));assert.doesNotMatch(JSON.stringify(report),/fixture|example\.edu|Bearer|token|apikey|visual_metrics|payload/);
+ assert.equal(response.status,200);assert.match(response.headers.get('cache-control')??'',/private.*no-store/);assert.equal(response.headers.get('vary'),'Cookie');const report=await response.json();const {dataSource,...counts}=report;assert.equal(dataSource,'supabase');assert.equal(report.privateReferenceConfigured,false);assert.equal(report.complete,true);assert.ok(valuesAreCountsOnly(counts));assert.doesNotMatch(JSON.stringify(report),/fixture|example\.edu|Bearer|token|apikey|visual_metrics|payload/);
 });
 test('Sin sesión Google del origen o con otra identidad no consulta ninguna fila',async()=>{
  for(const [user,status]of [[null,401],[{...boardUser,email:'other@example.edu'},403],[{...boardUser,identities:[]},403]] as const){let called=false;const response=await managementRequest(checkRequest(),config,identity,()=>auth(user as User|null) as any,async()=>{called=true;return new Response();});assert.equal(response.status,status);assert.equal(called,false);assert.match(response.headers.get('cache-control')??'',/no-store/);}
@@ -104,61 +101,22 @@ test('El control DU previo mantiene 401 sin sesión, 403 al desactivar y 403 par
  assert.equal((await teamRequest(foreign,config,store,()=>duAuth(identity))).status,403);
 });
 
-function syntheticReference(){
- const data=education();data.copy={...data.copy,title:'Referencia ficticia',subtitle:'Solo prueba',schoolsLabel:'Ficticio',studentsLabel:'Ficticio',teachersLabel:'Ficticio',stateLabel:'Ficticio',privateLabel:'Ficticio',otherServicesTitle:'Ficticio',levelLabels:Object.fromEntries(['initial','primary','secondary','adult','special','higher'].map(key=>[key,'Nivel ficticio']))} as any;
- return JSON.stringify({educationSystem:data,trafficLights:{'fixture-reference-marker':'R'}},(_key,value)=>typeof value==='number'?String(value):value);
-}
-const proxyRequest=(route:string,method='GET')=>new Request(config.origin+'/api/gestion/proxy?route='+encodeURIComponent(route),{method,headers:{origin:config.origin,'content-type':'application/json'},...(['GET','HEAD'].includes(method)?{}:{body:'{}'})});
-
-test('La referencia privada solo completa datos ausentes de filas autorizadas y conserva valores actuales',async()=>{
- process.env.DU_PRIVATE_REFERENCE_DATA=syntheticReference();
- try{
-  const upstream=[{id:'fixture-row',name:'Datos del Sistema Educativo',visual_metrics:{educationSystem:{schools:{total:'Valor actual privado'}},unrelated:{keep:true}}}];
-  const before=structuredClone(upstream);
-  const response=await managementRequest(proxyRequest('/rest/v1/projects?select=id,name,visual_metrics'),config,identity,()=>auth() as any,async(input,init)=>{
-   assert.equal(new URL(String(input)).pathname,'/rest/v1/projects');assert.equal(init?.method,'GET');assert.equal(new Headers(init.headers).get('authorization'),'Bearer '+token);
-   return Response.json(upstream,{headers:{'content-range':'0-0/1'}});
-  });
-  assert.equal(response.status,200);assert.equal(response.headers.get('content-range'),'0-0/1');assert.match(response.headers.get('cache-control')??'',/no-store/);
-  const rows=await response.json();assert.equal(rows.length,1);assert.equal(rows[0].id,'fixture-row');assert.equal(rows[0].visual_metrics.educationSystem.schools.total,'Valor actual privado');assert.equal(rows[0].visual_metrics.educationSystem.schools.state,'0');assert.deepEqual(rows[0].visual_metrics.unrelated,{keep:true});assert.deepEqual(upstream,before);
- }finally{delete process.env.DU_PRIVATE_REFERENCE_DATA;}
+test('La presencia de mapa en proyecto usa el predicado legacy exacto y no confunde homónimos de otras áreas',()=>{
+ const marker={id:'synthetic-marker',lat:0,lng:0,status:'En ejecución'};
+ const target={id:'synthetic-project',name:'Estado Edilicio - ejemplo ficticio',primary_area:{area_key:'gestion_administrativa'},visual_metrics:{administrativeWorksMap:{markers:[marker]}}};
+ const unrelated={...target,id:'synthetic-other-project',primary_area:{area_key:'otra_area'}};
+ const report=summarizeStoredPrivateData([target,unrelated],[{...map(),project_id:target.id}]);
+ assert.equal(report.worksMaps.projectCandidates,1);assert.equal(report.worksMaps.projectsWithAdministrativeMap,1);assert.equal(report.worksMaps.presentMarkers,1);assert.equal(report.worksMaps.projectHasAdministrativeMap,true);
+ assert.equal(report.worksMaps.withProjectAssociation,1);assert.equal(report.worksMaps.mapHasProjectFk,true);assert.equal(report.worksMaps.mapMatchesAdministrativeProject,true);assert.ok(valuesAreCountsOnly(report));assert.doesNotMatch(JSON.stringify(report),/synthetic|Edilicio|gestion_administrativa/);
 });
-test('La referencia no amplía filas/columnas ni altera JSON sin cambios, nulos o errores del origen',async()=>{
- process.env.DU_PRIVATE_REFERENCE_DATA=syntheticReference();
- try{
-  for(const raw of ['[]','[ { "id":"fixture-row", "name":"Datos del Sistema Educativo" } ]','[ { "id":"fixture-row", "name":"Datos del Sistema Educativo", "visual_metrics":null } ]','{"error":"fixture error"}']){
-   const response=await managementRequest(proxyRequest('/rest/v1/projects?select=id,name'),config,identity,()=>auth() as any,async()=>new Response(raw,{headers:{'content-type':'application/json'}}));assert.equal(response.status,200);assert.equal(await response.text(),raw);
-  }
- }finally{delete process.env.DU_PRIVATE_REFERENCE_DATA;}
+test('Mapas y proyectos ambiguos no certifican una asociación ni seleccionan un destino arbitrario',()=>{
+ const target={id:'synthetic-project',name:'Estado edilicio',primary_area:null,project_areas:[{area:[{area_key:'gestion_administrativa'}]}],visual_metrics:{administrativeWorksMap:{markers:[{lat:0,lng:0}]}}};
+ const views=[{...map('synthetic-map-a'),project_id:target.id},{...map('synthetic-map-b'),project_id:target.id}];
+ const report=summarizeStoredPrivateData([target,{...target,id:'synthetic-project-b'}],views);
+ assert.equal(report.worksMaps.projectCandidates,2);assert.equal(report.worksMaps.projectsWithAdministrativeMap,2);assert.equal(report.worksMaps.presentMarkers,2);assert.equal(report.worksMaps.projectHasAdministrativeMap,false);assert.equal(report.worksMaps.withProjectAssociation,2);assert.equal(report.worksMaps.mapHasProjectFk,false);assert.equal(report.worksMaps.mapMatchesAdministrativeProject,false);
 });
-test('Los semáforos privados solo completan marcadores sin ningún estado propio y no agregan ubicaciones',async()=>{
- process.env.DU_PRIVATE_REFERENCE_DATA=syntheticReference();
- try{
-  const rows=[{id:'fixture-view',view_key:'administrative_works_map',title:'Mapa de obras ficticio',payload:{markers:[
-   {id:'fixture-reference-marker:one',lat:0,lng:0},
-   {id:'fixture-reference-marker:two',lat:0,lng:0,status:''},
-   {id:'fixture-reference-marker:three',lat:0,lng:0,state:null},
-   {id:'fixture-reference-marker:four',lat:0,lng:0,semaforo:'V'},
-  ]}}];const before=structuredClone(rows);
-  const response=await managementRequest(proxyRequest('/rest/v1/special_views'),config,identity,()=>auth() as any,async()=>Response.json(rows));const received=await response.json();const markers=received[0].payload.markers;
-  assert.equal(markers.length,4);assert.equal(markers[0].semaforo,'R');assert.equal(Object.hasOwn(markers[1],'semaforo'),false);assert.equal(Object.hasOwn(markers[2],'semaforo'),false);assert.equal(markers[3].semaforo,'V');assert.deepEqual(rows,before);
- }finally{delete process.env.DU_PRIVATE_REFERENCE_DATA;}
-});
-test('HEAD, RPC, otras tablas y respuestas denegadas nunca leen ni aplican referencias',async()=>{
- process.env.DU_PRIVATE_REFERENCE_DATA='{invalid synthetic config';
- try{
-  for(const [route,method,status]of [['/rest/v1/projects','HEAD',200],['/rest/v1/projects','GET',403],['/rest/v1/profiles','GET',200],['/rest/v1/rpc/save_project_bundle','POST',200]] as const){
-   const response=await managementRequest(proxyRequest(route,method),config,identity,()=>auth() as any,async()=>new Response(method==='HEAD'?null:'{"fixture":"unchanged"}',{status,headers:{'content-type':'application/json'}}));assert.equal(response.status,status);if(method!=='HEAD')assert.equal(await response.text(),'{"fixture":"unchanged"}');
-  }
- }finally{delete process.env.DU_PRIVATE_REFERENCE_DATA;}
-});
-test('El checker informa la configuración privada por separado y sigue midiendo solo la base',async()=>{
- process.env.DU_PRIVATE_REFERENCE_DATA=syntheticReference();
- try{
-  let reads=0;const response=await managementRequest(checkRequest(),config,identity,()=>auth() as any,async(input)=>{
-   const path=new URL(String(input)).pathname;if(path.endsWith('/du_management_revisions'))return Response.json([revisions()]);reads++;
-   return Response.json(path.endsWith('/projects')?[{id:'fixture-empty-project',name:'Datos del Sistema Educativo',visual_metrics:{}}]:[{id:'fixture-empty-map',view_key:'administrative_works_map',title:'Mapa de obras',payload:{markers:[]}}],{headers:{'content-range':'0-0/1'}});
-  });
-  assert.equal(response.status,200);const report=await response.json();assert.equal(reads,2);assert.equal(report.privateReferenceConfigured,true);assert.equal(report.education.presentNumericFields,0);assert.equal(report.education.complete,false);assert.equal(report.worksMaps.complete,false);assert.ok(valuesAreCountsOnly(report));assert.doesNotMatch(JSON.stringify(report),/Referencia ficticia|fixture-reference-marker|8\.765\.432/);
- }finally{delete process.env.DU_PRIVATE_REFERENCE_DATA;}
+test('FK ausente, FK hacia otro proyecto y mapa de proyecto vacío quedan diferenciados sin IDs en la respuesta',()=>{
+ const target={id:'synthetic-project',name:'Estado edilicio',primary_area:[{area_key:'gestion_administrativa'}],visual_metrics:{administrativeWorksMap:{markers:[]}}};
+ const unlinked=summarizeStoredPrivateData([target],[{...map(),project_id:null}]);assert.equal(unlinked.worksMaps.withProjectAssociation,0);assert.equal(unlinked.worksMaps.mapHasProjectFk,false);assert.equal(unlinked.worksMaps.projectHasAdministrativeMap,false);assert.equal(unlinked.worksMaps.presentMarkers,0);
+ const other=summarizeStoredPrivateData([target],[{...map(),project_id:'synthetic-different-project'}]);assert.equal(other.worksMaps.mapHasProjectFk,true);assert.equal(other.worksMaps.mapMatchesAdministrativeProject,false);assert.equal(other.worksMaps.projectHasAdministrativeMap,false);
 });

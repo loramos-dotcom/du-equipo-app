@@ -11,6 +11,7 @@ const numericPaths=[
 ];
 const notePaths=[['copy','enrollmentNote'],['copy','teacherNote'],['copy','sources']];
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
+const relation=(value:unknown):unknown[]=>Array.isArray(value)?value:object(value)?[value]:[];
 const normalized=(value:unknown)=>typeof value==='string'?value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim().replace(/\s+/g,' '):'';
 const at=(value:unknown,path:string[]):unknown=>path.reduce<unknown>((row,key)=>object(row)?row[key]:undefined,value);
 function numericValue(value:unknown){
@@ -26,11 +27,18 @@ function explicitLight(row:Record<string,unknown>){return ['semaforo','trafficLi
 
 function accumulator(){
  const education={candidates:0,presentObjects:0,requiredNumericFieldsPerCandidate:numericPaths.length,requiredNumericFields:0,presentNumericFields:0,missingNumericFields:0,requiredNoteFields:0,presentNoteFields:0,missingNoteFields:0,complete:false,notesComplete:false};
- const worksMaps={candidates:0,presentMarkerArrays:0,emptyMarkerArrays:0,markersTotal:0,withExplicitValidTrafficLight:0,withRecognizedTextualStatus:0,unknownStatuses:0,invalidCoordinates:0,complete:false};
+ const worksMaps={candidates:0,presentMarkerArrays:0,emptyMarkerArrays:0,markersTotal:0,withExplicitValidTrafficLight:0,withRecognizedTextualStatus:0,unknownStatuses:0,invalidCoordinates:0,withProjectAssociation:0,mapHasProjectFk:false,projectCandidates:0,projectsWithAdministrativeMap:0,presentMarkers:0,projectHasAdministrativeMap:false,mapMatchesAdministrativeProject:false,complete:false};
+ const administrativeProjectIds=new Set<string>(),mapProjectIds:string[]=[];
  return {
   projects(rows:unknown[]){for(const raw of rows){
    if(!object(raw))throw new DomainError('La respuesta del origen no permite comprobar los datos privados.',503);
    const metrics=object(raw.visual_metrics)?raw.visual_metrics:{};
+   const areas=[...relation(raw.primary_area),...relation(raw.project_areas).flatMap(link=>object(link)?relation(link.area):[])];
+   if(normalized(raw.name).includes('estado edilicio')&&areas.some(area=>object(area)&&area.area_key==='gestion_administrativa')){
+    worksMaps.projectCandidates++;if(typeof raw.id==='string')administrativeProjectIds.add(raw.id);
+    const map=metrics.administrativeWorksMap;
+    if(object(map)&&Array.isArray(map.markers)&&map.markers.length>0){worksMaps.projectsWithAdministrativeMap++;worksMaps.presentMarkers+=map.markers.length;}
+   }
    if(!normalized(raw.name).includes('datos del sistema educativo')&&!Object.hasOwn(metrics,'educationSystem'))continue;
    education.candidates++;const data=metrics.educationSystem;if(object(data))education.presentObjects++;
    education.requiredNumericFields+=numericPaths.length;
@@ -42,6 +50,7 @@ function accumulator(){
    if(!object(raw))throw new DomainError('La respuesta del origen no permite comprobar los datos privados.',503);
    if(!normalized(raw.view_key).includes('administrative_works_map')&&!normalized(raw.title).includes('mapa de obras'))continue;
    worksMaps.candidates++;const payload=object(raw.payload)?raw.payload:{};
+   if(typeof raw.project_id==='string'&&raw.project_id.trim()){worksMaps.withProjectAssociation++;mapProjectIds.push(raw.project_id);}
    if(!Array.isArray(payload.markers))continue;
    worksMaps.presentMarkerArrays++;if(payload.markers.length===0)worksMaps.emptyMarkerArrays++;
    for(const marker of payload.markers){
@@ -58,6 +67,9 @@ function accumulator(){
    education.missingNoteFields=education.requiredNoteFields-education.presentNoteFields;
    education.complete=education.candidates>0&&education.presentObjects===education.candidates&&education.missingNumericFields===0;
    education.notesComplete=education.candidates>0&&education.missingNoteFields===0;
+   worksMaps.mapHasProjectFk=worksMaps.candidates===1&&worksMaps.withProjectAssociation===1;
+   worksMaps.projectHasAdministrativeMap=worksMaps.projectCandidates===1&&worksMaps.projectsWithAdministrativeMap===1&&worksMaps.presentMarkers>0;
+   worksMaps.mapMatchesAdministrativeProject=worksMaps.mapHasProjectFk&&worksMaps.projectCandidates===1&&administrativeProjectIds.size===1&&administrativeProjectIds.has(mapProjectIds[0]);
    worksMaps.complete=worksMaps.candidates>0&&worksMaps.presentMarkerArrays===worksMaps.candidates&&worksMaps.emptyMarkerArrays===0&&worksMaps.markersTotal>0&&worksMaps.unknownStatuses===0&&worksMaps.invalidCoordinates===0;
    return {consistent:true,complete:education.complete&&worksMaps.complete,education:{...education},worksMaps:{...worksMaps}};
   },
@@ -107,7 +119,7 @@ export async function readStoredPrivateDataCheck(token:string,transport:typeof f
   }
   throw new DomainError('No se pudo comprobar la totalidad de los datos del origen.',503);
  }
- await pages('projects','id,name,visual_metrics',rows=>a.projects(rows));
- await pages('special_views','id,view_key,title,payload',rows=>a.views(rows));
+ await pages('projects','id,name,visual_metrics,primary_area:areas!projects_primary_area_id_fkey(area_key),project_areas(area:areas!project_areas_area_id_fkey(area_key))',rows=>a.projects(rows));
+ await pages('special_views','id,project_id,view_key,title,payload',rows=>a.views(rows));
  return a.report();
 }
