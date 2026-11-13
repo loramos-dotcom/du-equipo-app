@@ -477,7 +477,7 @@ export function ProjectEditor({
 
           {isSinigepProject && (
             <section className="editor-section">
-              <div className="section-heading-copy"><h3>Avance de declaraciones juradas</h3><p>Los valores, cantidades, fecha y semáforos se muestran también en visualización e impresión.</p></div>
+              <div className="section-heading-copy"><h3>Avance de declaraciones juradas</h3></div>
               <label className="sinigep-date-field">Fecha de medición
                 <input
                   type="date"
@@ -517,7 +517,7 @@ export function ProjectEditor({
             <section className="editor-section education-system-editor-section">
               <div className="section-heading-copy">
                 <h3>Universo del Sistema Educativo</h3>
-                <p>Editá todas las cifras de la visualización. Podés escribir los separadores tal como deben mostrarse.</p>
+                <p>Usá los separadores tal como deben mostrarse.</p>
               </div>
               <EducationSystemEditor data={educationSystemData} onChange={(data) => setVisualMetrics((current) => setEducationSystemData(current, data))} />
             </section>
@@ -527,7 +527,7 @@ export function ProjectEditor({
             <section className="editor-section risk-table-editor-section">
               <div className="section-heading-copy">
                 <h3>Cuadro de seguimiento</h3>
-                <p>Completá las celdas y adaptá los encabezados. El cuadro también se incluirá en impresión.</p>
+                
               </div>
               <div className="risk-table-editor-scroll">
                 <table className="risk-table-editor">
@@ -611,3 +611,4 @@ export function ProjectEditor({
       </dialog>
   )
 }
+
