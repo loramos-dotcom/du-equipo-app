@@ -303,7 +303,7 @@ export function PortfolioPanels({
           <section className="portfolio-section" key={section.key}>
             <button className="portfolio-disclosure" type="button" aria-expanded={open} onClick={() => togglePanel(section.key)}>
               <span className="portfolio-disclosure-icon">{section.icon}</span>
-              <span><strong>{section.title}</strong><small>{section.description}</small></span>
+              <span><strong>{section.title}</strong></span>
               <b>{section.count}</b>
               {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             </button>
@@ -435,3 +435,4 @@ export function PortfolioPanels({
     </section>
   )
 }
+
