@@ -2,7 +2,7 @@ import {taskCollaborators,taskAreaIds} from './task-assignment.ts';
 import {resolveProjectAssignments}from'./project-assignments.ts';
 import {canEditCalendarMinutes}from'./calendar.ts';
 import type {TeamEvent}from'./calendar.ts';
-import {validateWorkGraph,workDescendants,workClosureProblems,workBlockers,workSnapshotRows,taskDescription,retiredWorkFields} from './work.ts';
+import {validateWorkGraph,workClosureProblems,workBlockers,workSnapshotRows,taskDescription,retiredWorkFields} from './work.ts';
 import {cleanView} from './saved-views.ts';
 import {issueVisibility} from './issue-access.ts';
 import {mayPrioritize} from './project-portfolios.ts';
@@ -19,7 +19,7 @@ const required=(v:any,label:string)=>{if(typeof v!=='string'||!v.trim())fail(`${
 const pick=(o:Record<string,any>,keys:string[])=>Object.fromEntries(keys.filter(k=>o[k]!==undefined).map(k=>[k,o[k]]));
 const fields:Partial<Record<Collection,string[]>>={
  projects:['manualMemberIds','manualAreaIds','title','description','outcome','kind','scope','leadId','members','intervention','areaId','areaIds','policyId','startDate','targetDate','nextStep','nextDate','nextMilestoneId','tags','documents'],
- tasks:['referenceUrl','assignmentMode','areaId','areaIds','panelPriority','title','description','parentTaskId','dependsOnIds','ownerId','collaborators','projectId','milestoneId','dueDate','priority','requiresValidation','validatorId','requiresEvidence','origin','originDetail','links','tags'],
+ tasks:['referenceUrl','assignmentMode','areaId','areaIds','panelPriority','title','description','dependsOnIds','ownerId','collaborators','projectId','milestoneId','dueDate','priority','requiresValidation','validatorId','requiresEvidence','origin','originDetail','links','tags'],
  milestones:['title','description','criteria','projectId','ownerType','ownerId','areaId','contact','dueDate'],
  issues:['title','type','taskId','projectId','ownerId','dependency','impact','probability','mitigation','nextAction','followUpDate'],
  meetings:['title','date','weekId','planningWeekId','attendees','durations','minutes','presentIds','excusedIds','selectedUpdateIds','selectedCommitmentIds','advanceMinutes','decisionMinutes','teamMinutes','planningMinutes'],
@@ -81,7 +81,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   if(!taskStatuses.includes(status))fail('Estado de tarea inválido.');if(!taskEditor(t)&&!(t.status==='Para validar'&&actorId===t.validatorId))fail('No podés actualizar esta tarea.',403);
   if(t.archived)fail('Restaurá la tarea archivada antes de modificarla.');
   if(!['Terminada','Para validar','Cancelada'].includes(status)){
-   const frozen=d.tasks.find(row=>['Terminada','Para validar'].includes(row.status)&&(row.id===t.parentTaskId||(row.dependsOnIds??[]).includes(t.id)));
+   const frozen=d.tasks.find(row=>['Terminada','Para validar'].includes(row.status)&&(row.dependsOnIds??[]).includes(t.id));
    if(frozen)fail('Reabrí primero '+frozen.title+' antes de reabrir este trabajo.');
   }
   if(status==='En curso'&&workBlockers(d.tasks,t).length)fail('Hay dependencias pendientes. Abrí Trabajo vinculado para ver qué debe terminar primero.');
@@ -205,12 +205,11 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
    if(r&&['leadId','areaId','areaIds'].some(k=>k in a&&JSON.stringify(a[k])!==JSON.stringify(r[k]))){if(!lead(r))checkCoord();reason();}
   }
   if(c==='tasks'){
-   const parentId=a.parentTaskId!==undefined?a.parentTaskId:r?.parentTaskId;
-   if(parentId){const parent=get('tasks',parentId);if(!r||parentId!==r.parentTaskId){if(parent.archived||terminals.includes(parent.status))fail('Reabrí el trabajo padre antes de agregar o vincular subtareas.');}if(a.projectId!==undefined&&(a.projectId||null)!==(parent.projectId||null))fail('El proyecto se hereda del trabajo padre. Para mover toda la rama, editá su raíz.');a.projectId=parent.projectId||null;}
+   if(a.parentTaskId!==undefined&&a.parentTaskId!==null&&a.parentTaskId!=='')fail('Las subtareas ya no están disponibles. Usá una tarea y su descripción. Recargá la app para continuar.');
    if(r&&!taskEditor(r))fail('No podés modificar esta tarea.',403);
    if(r&&'ownerId'in a&&a.ownerId!==r.ownerId)fail('Usá Reasignar para revisar el impacto en compromisos.');
    if(!r&&!coord){if(a.projectId){const p=get('projects',a.projectId);if(!lead(p)&&!p.members.includes(actorId))fail('No participás de este proyecto.',403);if(a.ownerId!==actorId&&!lead(p))fail('Asigná la nueva tarea a tu nombre.',403);}else if(a.ownerId&&a.ownerId!==actorId)fail('La tarea independiente se asigna inicialmente a vos.',403);}
-   if(r&&['dueDate','projectId','milestoneId','description','parentTaskId','dependsOnIds'].some(k=>k in a&&JSON.stringify(k==='dependsOnIds'?a[k]??[]:a[k]||null)!==JSON.stringify(k==='dependsOnIds'?r[k]??[]:r[k]||null)))reason();
+   if(r&&['dueDate','projectId','milestoneId','description','dependsOnIds'].some(k=>k in a&&JSON.stringify(k==='dependsOnIds'?a[k]??[]:a[k]||null)!==JSON.stringify(k==='dependsOnIds'?r[k]??[]:r[k]||null)))reason();
    if(r?.status==='Para validar'&&['requiresValidation','validatorId','requiresEvidence'].some(k=>k in a&&a[k]!==r[k]))fail('Devolvé la tarea a En curso antes de cambiar su validación.');
   }
   if(c==='milestones'){const p=get('projects',a.projectId??r?.projectId);if(!lead(p)||r&&!lead(get('projects',r.projectId)))fail('Solo el referente puede modificar hitos.',403);if(r&&a.projectId&&a.projectId!==r.projectId){reason();if(d.tasks.some(t=>t.milestoneId===r.id)||d.projects.some(p=>p.nextMilestoneId===r.id))fail('Desvinculá las tareas y el próximo paso antes de mover el hito.');}if(r&&a.dueDate!==undefined&&a.dueDate!==r.dueDate)reason();}
@@ -256,10 +255,9 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
    if(a.workType&&a.workType!=='task'||retiredWorkFields.slice(1).some(key=>a[key]!==undefined))fail('Esta opción ya no está disponible. Usá una tarea y su descripción. Recargá la app para continuar.');
    if(r&&a.description===undefined)row.description=taskDescription(r);
    for(const key of retiredWorkFields)delete row[key];
-   row.parentTaskId=row.parentTaskId||null;row.dependsOnIds=[...new Set(row.dependsOnIds??[])];
-   if(r&&'parentTaskId'in a&&a.parentTaskId!==input.data.tasks.find(t=>t.id===r.id)?.parentTaskId)delete row.deletedParentTitle;
+   row.parentTaskId=null;row.dependsOnIds=[...new Set(row.dependsOnIds??[])];
+   delete row.deletedParentTitle;
    if(r&&'dependsOnIds'in a)delete row.removedDependencyTitles;
-   if(r&&(row.projectId||null)!==(input.data.tasks.find(t=>t.id===r.id)?.projectId||null))for(const child of workDescendants(d.tasks,row.id)){if(!taskEditor(child))fail('No tenés permiso para mover todas las subtareas. Pedí el traslado a Coordinación.',403);child.projectId=row.projectId||null;if(child.milestoneId&&d.milestones.find(m=>m.id===child.milestoneId)?.projectId!==row.projectId)child.milestoneId=null;taskRefs(child);}
    if(!['Alta','Media','Baja'].includes(row.priority))fail('Prioridad de tarea inválida.');row.collaborators.forEach(activeMember);
    if(r&&r.projectId!==input.data.tasks.find(x=>x.id===r.id)?.projectId&&row.milestoneId){const m=get('milestones',row.milestoneId);if(m.projectId!==row.projectId)fail('Seleccioná un hito compatible al mover la tarea.');}
   }

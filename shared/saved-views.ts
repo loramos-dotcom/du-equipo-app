@@ -14,6 +14,7 @@ export function cleanView(value:unknown):Record<string,any>{
   if(!source[key]||typeof source[key]!=='object'||Array.isArray(source[key]))throw Error('Los filtros de la vista no son válidos.');
   result[key]={};for(const[field,type]of Object.entries(fields)){if(source[key][field]!==undefined&&typeof source[key][field]!==type)throw Error('Los filtros de la vista no son válidos.');result[key][field]=source[key][field]??(type==='boolean'?false:'');}
  }
+ if(result.taskFilters){delete result.taskFilters.parent;if(result.taskFilters.relationship!=='blocked')result.taskFilters.relationship='';}
  if(source.gestionView!==undefined){const v=source.gestionView;if(!v||typeof v!=='object'||Array.isArray(v)||['query','owner','activeArea'].some(key=>typeof v[key]!=='string')||typeof v.priority!=='boolean'||!['cards','table'].includes(v.view)||!Array.isArray(v.statuses)||v.statuses.some((status:unknown)=>!['active','pending','alert','finished'].includes(String(status))))throw Error('Los filtros del Tablero no son válidos.');if(v.projectScope!==undefined&&!['mine','all'].includes(v.projectScope))throw Error('Elegí un alcance de proyectos válido.');result.gestionView={...(v.projectScope?{projectScope:v.projectScope}:{}),query:v.query,owner:v.owner,activeArea:v.activeArea,priority:v.priority,view:v.view,statuses:[...v.statuses]};}
  return result;
 }
