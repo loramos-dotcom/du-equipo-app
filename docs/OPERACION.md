@@ -4,6 +4,10 @@ La aplicación institucional usa el servidor de Vercel y Supabase. Las variables
 
 Calendar mantiene conexiones personales cifradas. Drive guarda respaldos cifrados mediante la cuenta configurada en DU_BACKUP_OWNER_EMAIL. Las credenciales OAuth y claves de cifrado permanecen en el servidor. La clave privada de recuperación se conserva por separado y nunca se despliega.
 
+El ingreso DU exige una sesión OAuth verificada, identidad Google institucional y pertenencia al padrón activo. Coordinación puede marcar `Suspender acceso` al editar una persona en Equipo: el servidor bloquea sus siguientes solicitudes aun con una sesión previa, sin exigir reasignar antes sus tareas. La suspensión se puede revertir con motivo y se registra en el historial. No puede dejar al equipo sin otra Coordinación habilitada. Este bloqueo corresponde a DU; no revoca por sí solo accesos institucionales al Tablero, GitHub, Google o Vercel.
+
+Calendar comparte con el equipo los eventos no privados de los calendarios elegidos expresamente, incluidas las citas sin invitados. Los eventos privados/confidenciales quedan excluidos y la vista inicial sigue siendo individual. La sincronización reserva cada conexión con control de revisión y respeta cinco minutos entre intentos, también al forzar o fallar una actualización; retirar calendarios elimina inmediatamente su caché compartida.
+
 El cron diario se declara en vercel.json. Las APIs de datos, Calendar, respaldos y trabajos requieren autenticación o el secreto de cron correspondiente.
 
 Las cifras educativas y los estados de obras se leen de los registros existentes de Supabase mediante el ingreso institucional y los permisos del Tablero. No hay cifras ni semáforos reales de respaldo en el cliente ni en la configuración del servidor. Ante una ausencia, la app muestra un estado neutro en lugar de inventar valores. La edición conserva los registros originales y su sincronización entre ambas apps.

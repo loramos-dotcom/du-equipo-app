@@ -28,7 +28,7 @@ export function authorizedMember(s:MembershipState,identity:VerifiedIdentity){
  if(s.accessMode!=='institutional')throw new DomainError('El espacio institucional no está configurado.',503);
  if(!identity?.id||identity.verified!==true||identity.provider!=='google')throw new DomainError('Ingresá con tu cuenta institucional de Google.',401);
  const email=normalizeEmail(identity.email??'');
- const m=s.data.members.find(m=>m.email===email&&m.active===true);
+ const m=s.data.members.find(m=>m.email===email&&m.active===true&&m.accessSuspended!==true);
  if(!m||m.authUserId&&m.authUserId!==identity.id||s.data.members.some(other=>other.id!==m.id&&other.authUserId===identity.id))throw new DomainError('Tu cuenta no tiene acceso activo. Consultá con Coordinación.',403);
  return m;
 }

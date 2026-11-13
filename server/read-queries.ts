@@ -2,6 +2,7 @@ import type {Store,HistoryParams}from'./api.ts';
 import type{Row,State,Collection}from'../shared/model.ts';
 import{dateInBA,normalize}from'../shared/model.ts';
 import{DomainError,publicState}from'../shared/domain.ts';
+import{withoutPrivateIdentityFields}from'../shared/identity-privacy.ts';
 export async function readQuery(request:Request,store:Store,key:string,actor:Row,state?:State){
  const url=new URL(request.url),path=url.pathname;const json=(data:unknown)=>Response.json(data,{headers:{'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
   if(path==='/api/records'&&request.method==='GET'){
@@ -27,7 +28,7 @@ export async function readQuery(request:Request,store:Store,key:string,actor:Row
    const params:HistoryParams={offset,limit,entity:url.searchParams.get('entity')??'',entityId:url.searchParams.get('entityId')??'',actor:url.searchParams.get('actor')??'',q:url.searchParams.get('q')??'',from:url.searchParams.get('from')??'',to:url.searchParams.get('to')??'',restricted:actor.role!=='Coordinación',viewerId:actor.id};
    for(const value of [params.from,params.to])if(value&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T12:00:00Z'))||new Date(value+'T12:00:00Z').toISOString().slice(0,10)!==value))throw new DomainError('Fecha no válida.',400);
    if(params.restricted&&['members','settings','export','filters','preferences','notifications'].includes(params.entity??''))throw new DomainError('No tenés permiso para este historial.',403);
-   if(store.history){const result=await store.history(key,params);if(params.restricted)result.rows=result.rows.map(row=>({...row,actorEmail:null}));return json(result);}
+   if(store.history){const result=await store.history(key,params);if(params.restricted)result.rows=result.rows.map(withoutPrivateIdentityFields);return json(result);}
    const rows=publicState(state!,actor.id).audit.filter(e=>(!params.entity||e.entity===params.entity)&&(!params.entityId||e.entityId===params.entityId)&&(!params.actor||e.actorId===params.actor)&&(!params.q||normalize(JSON.stringify(e)).includes(normalize(params.q)))&&(!params.from||dateInBA(new Date(e.at))>=params.from)&&(!params.to||dateInBA(new Date(e.at))<=params.to)).slice().reverse();return json({rows:rows.slice(offset,offset+limit),total:rows.length});
   }
  return null;

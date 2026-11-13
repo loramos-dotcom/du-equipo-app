@@ -16,6 +16,7 @@ export function teamConfig(env:Record<string,string|undefined>):TeamConfig{
 export function verifiedGoogleIdentity(user:User|null):VerifiedIdentity|null{
  if(!user?.id||!user.email||!user.email_confirmed_at||user.app_metadata?.provider!=='google')return null;
  const email=normalizeEmail(user.email);
+ if(!/^[^\s@]+@bue\.edu\.ar$/.test(email))return null;
  const google=user.identities?.find(i=>i.provider==='google'&&i.identity_data?.email_verified===true&&normalizeEmail(i.identity_data.email??'')===email);
  return google?{id:user.id,email,verified:true,provider:'google'}:null;
 }
@@ -29,7 +30,13 @@ export function requestAuth(request:Request,config:TeamConfig,transport:typeof f
   cookies:{getAll:()=>[...cookies].map(([name,value])=>({name,value})),setAll:(items)=>{for(const {name,value,options} of items){cookies.set(name,value);pending.set(name,serializeCookieHeader(name,value,{...options,httpOnly:true,secure:true,sameSite:'lax',path:'/'}));}}}
  });
  return {
-  async identity(){const {data,error}=await client.auth.getUser();return error?null:verifiedGoogleIdentity(data.user);},
+  async identity(){
+   const {data:{session},error:sessionError}=await client.auth.getSession();if(sessionError||!session)return null;
+   const {data:verified,error:claimsError}=await client.auth.getClaims(session.access_token);
+   if(claimsError||!verified?.claims||!verified.claims.amr?.some(method=>typeof method==='object'&&method!==null&&method.method==='oauth'))return null;
+   const {data,error}=await client.auth.getUser(session.access_token);
+   return error||verified.claims.sub!==data.user?.id?null:verifiedGoogleIdentity(data.user);
+  },
   async login(){const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:config.origin+'/auth/callback',scopes:'openid email profile',queryParams:{prompt:'select_account'},skipBrowserRedirect:true}});if(error||!data.url)throw Error('oauth');return data.url;},
   async exchange(code:string){const {error}=await client.auth.exchangeCodeForSession(code);if(error)throw Error('oauth');},
   async logout(){const {error}=await client.auth.signOut({scope:'local'});for(const name of cookies.keys())if(name.startsWith('du-institutional'))pending.set(name,serializeCookieHeader(name,'',{httpOnly:true,secure:true,sameSite:'lax',path:'/',maxAge:0}));if(error)throw Error('logout');},

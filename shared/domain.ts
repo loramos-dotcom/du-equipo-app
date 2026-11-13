@@ -5,6 +5,7 @@ import type {TeamEvent}from'./calendar.ts';
 import {validateWorkGraph,workClosureProblems,workBlockers,workSnapshotRows,taskDescription,retiredWorkFields} from './work.ts';
 import {cleanView} from './saved-views.ts';
 import {issueVisibility} from './issue-access.ts';
+import {withoutPrivateIdentityFields} from './identity-privacy.ts';
 import {mayPrioritize} from './project-portfolios.ts';
 import {effectiveArea,overlaps} from './structure.ts';
 import {meetingSegments,meetingMinutes,meetingWeekWork} from './meetings.ts';
@@ -23,7 +24,7 @@ const fields:Partial<Record<Collection,string[]>>={
  milestones:['title','description','criteria','projectId','ownerType','ownerId','areaId','contact','dueDate'],
  issues:['title','type','taskId','projectId','ownerId','dependency','impact','probability','mitigation','nextAction','followUpDate'],
  meetings:['title','date','weekId','planningWeekId','attendees','durations','minutes','presentIds','excusedIds','selectedUpdateIds','selectedCommitmentIds','advanceMinutes','decisionMinutes','teamMinutes','planningMinutes'],
- members:['name','functionTitle','responsibilities','reportsTo','group','email','role','active','setupStatus'],
+ members:['name','functionTitle','responsibilities','reportsTo','group','email','role','active','accessSuspended','setupStatus'],
  areas:['name','acronym','leadId','substitutes','parentId','active','contact','contactEmail','documents'],
  recurrences:['title','projectId','ownerId','collaborators','description','priority','frequency','weekday','monthday','startsOn','endsOn','active','requiresValidation','validatorId'],
  areaContacts:['areaId','name','position','email','active'],
@@ -278,6 +279,8 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
    for(const id of row.selectedCommitmentIds??[])get('commitments',id);
    required(row.title,'Título');if(!row.date)fail('Indicá fecha y hora.');ensureWeek(row.weekId);ensureWeek(row.planningWeekId);row.status=row.status??'Borrador';row.closeVersion=row.closeVersion??0;row.attendees?.forEach(activeMember);if(r?.status==='Cerrada')fail('Reabrí la reunión antes de editar.');}
   if(c==='members'){
+   if(row.accessSuspended!==undefined&&typeof row.accessSuspended!=='boolean')fail('La suspensión de acceso debe estar activada o desactivada.');
+   if(row.id===actorId&&row.accessSuspended===true)fail('Pedile a otra persona de Coordinación que suspenda tu acceso.');
    if(s.accessMode==='institutional'){
     if(typeof row.active!=='boolean')fail('El acceso debe estar habilitado o deshabilitado.');
     if(row.active&&!row.email)fail('Para activar el acceso hace falta el correo institucional exacto.');
@@ -290,7 +293,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
    if(row.active===false&&d.tasks.some(t=>!terminals.includes(t.status)&&t.requiresValidation&&t.validatorId===row.id))fail('Reasigná las validaciones pendientes antes de desactivar a la persona.');
    if(row.active===false&&d.areaAssignments.some(assignment=>assignment.memberId===row.id&&!assignment.cancelled&&(!assignment.validTo||assignment.validTo>=today)))fail('Reasigná las responsabilidades de áreas vigentes o futuras antes de desactivar a la persona.');
    if(row.active===false&&(d.issues.some(i=>i.ownerId===row.id&&!['Resuelta','Descartada'].includes(i.status))||d.decisions.some(i=>i.ownerId===row.id&&i.status==='Abierta')||d.milestones.some(m=>m.ownerType==='du'&&m.ownerId===row.id&&!['Logrado','Cancelado'].includes(m.status))))fail('Reasigná o resolvé las incidencias, acuerdos e hitos pendientes antes de desactivar a la persona.');
-   if(!d.members.some(x=>x.active&&x.role==='Coordinación'))fail('Debe existir al menos un coordinador activo.');
+   if(!d.members.some(x=>x.active&&x.accessSuspended!==true&&x.role==='Coordinación'))fail('Debe existir al menos un coordinador activo con acceso habilitado.');
   }
   if(c==='areas'){required(row.name,'Nombre del área');activeMember(row.leadId);row.substitutes=row.substitutes??[];row.substitutes.forEach(activeMember);row.active=row.active??true;if(row.active===false&&d.projects.some(p=>p.areaIds?.includes(row.id)&&!['Finalizado','Cancelado'].includes(p.status)))fail('Resolvé la continuidad de los proyectos del área antes de desactivarla.');}
   if(c==='areas'&&d.areas.some(x=>x.id!==row.id&&normalize(x.name.trim())===normalize(row.name.trim())&&(x.parentId||null)===(row.parentId||null)))fail('Ya existe un área con ese nombre en la misma dependencia.');
@@ -448,9 +451,9 @@ export function publicState(s:State,actorId:string){
  output.trash=trashSummaries(s,actorId);for(const c of collections)output.data[c]=output.data[c].filter(r=>!r.deletedAt&&issues.visible(c,r.id,r));
  output.data.notifications=output.data.notifications.filter(n=>n.ownerId===actorId&&issues.visible(n.targetType,n.targetId));output.data.preferences=output.data.preferences.filter(p=>p.ownerId===actorId);output.data.filters=output.data.filters.filter(f=>f.ownerId===actorId||f.shared);
  if(actor.role!=='Coordinación'){
-  output.audit=output.audit.filter(e=>!['members','settings','export','filters','preferences','notifications'].includes(e.entity)&&issues.visible(e.entity,e.entityId,e.after??e.before));
+  output.audit=output.audit.filter(e=>!['members','settings','export','filters','preferences','notifications'].includes(e.entity)&&issues.visible(e.entity,e.entityId,e.after??e.before)).map(withoutPrivateIdentityFields);
   output.data.members=output.data.members.map(m=>({...m,email:null}));
-  output.snapshots=output.snapshots.map(sn=>({...sn,payload:issues.payload(JSON.parse(JSON.stringify(sn.payload),(k,v)=>k==='email'?null:v))}));
+  output.snapshots=output.snapshots.map(sn=>({...sn,payload:issues.payload(withoutPrivateIdentityFields(sn.payload))}));
  }
  output.data.members=output.data.members.map(m=>{const {authUserId,activatedAt,...visible}=m;return visible;});return output;
 }

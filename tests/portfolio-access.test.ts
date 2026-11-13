@@ -1,7 +1,21 @@
 import {projectFilterAreaKeys} from '../src/gestion/du-portfolio.ts';
+import {readQuery} from '../server/read-queries.ts';
 import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';import{PGlite}from'@electric-sql/pglite';
 import{seed}from'../shared/seed.ts';import{execute,publicState}from'../shared/domain.ts';import{api}from'../server/api.ts';import{resolveProjectAssignments}from'../shared/project-assignments.ts';import{followedAreaKeys}from'../shared/project-portfolios.ts';import type{State}from'../shared/model.ts';
 const now=new Date('2026-10-21T15:00:00Z');
+test('El estado y ambos historiales ocultan identidad técnica y correo también en copias anidadas',async()=>{
+ const state=seed(now),privateIdentity={email:'identity-fixture@example.edu',actorEmail:'audit-fixture@example.edu',authUserId:'private-auth-fixture',activatedAt:'private-activation-fixture'},task=state.data.tasks[0];
+ state.audit.push({id:'privacy-audit',at:now.toISOString(),actorId:'persona01',actorName:'Integrante de prueba',actorEmail:privateIdentity.actorEmail,entity:'tasks',entityId:task.id,action:'modificar',before:{...task,member:privateIdentity},after:{...task,member:privateIdentity},fields:['member'],reason:'Ensayo',operationId:'privacy-operation',source:'interfaz'});
+ state.snapshots.push({id:'privacy-nested',kind:'meeting',targetId:'m1',version:1,at:now.toISOString(),actorId:'persona01',reason:'Ensayo',payload:{members:[privateIdentity],nested:{member:privateIdentity},tasks:[task]}});
+ const actor=state.data.members.find(m=>m.id==='persona05')!,memberState=publicState(state,actor.id),coordinatorState=publicState(state,'persona01');
+ const assertSanitized=(value:unknown)=>{const serialized=JSON.stringify(value);for(const privateValue of Object.values(privateIdentity))assert.equal(serialized.includes(privateValue),false);assert.ok(serialized.includes(task.title));};
+ assertSanitized(memberState);assert.ok(JSON.stringify(coordinatorState).includes(privateIdentity.email));assert.ok(JSON.stringify(state).includes(privateIdentity.authUserId));
+ const store={load:async()=>state,create:async()=>{},save:async()=>true};
+ const legacy=await readQuery(new Request('https://du.example/api/history?limit=100'),store,state.workspaceId,actor,state);assertSanitized(await legacy!.json());
+ const storedRow=state.audit.at(-1)!;
+ const paged={...store,history:async()=>({rows:[structuredClone(storedRow)],total:1})};
+ const response=await readQuery(new Request('https://du.example/api/history'),paged,state.workspaceId,actor,state);assertSanitized(await response!.json());assert.equal(storedRow.actorEmail,privateIdentity.actorEmail);
+});
 function call(s:State,actor:string,kind:string,data:any,entity?:any,id?:string,version?:number){return execute(s,actor,{id:crypto.randomUUID(),kind,data,entity,entityId:id,expectedVersion:version},now);}
 test('Coordinación ve todas las incidencias; cada integrante sólo las asignadas, con pedidos, comentarios e historial coherentes',()=>{
  let state=seed(now);state=call(state,'persona01','create',{targetType:'issues',targetId:'i2',body:'Comentario reservado de otra incidencia'},'comments').state;

@@ -37,3 +37,26 @@ test('race during binding never returns success for an unpersisted identity',asy
 test('members cannot self-promote and server identity fields cannot be forged',()=>{const f=fixture(),m=f.state.data.members.find(m=>m.id==='persona05')!;assert.throws(()=>execute(f.state,'persona05',{id:'p',kind:'update',entity:'members',entityId:m.id,expectedVersion:m.version,data:{role:'Coordinación',reason:'Quiero acceso'}}),/coordinación/i);assert.throws(()=>execute(f.state,'persona01',{id:'f',kind:'update',entity:'members',entityId:m.id,expectedVersion:m.version,data:{authUserId:'fake',reason:'Vinculación'}}),/servidor/);});
 test('active institutional member requires email and changing email clears old binding',async()=>{const f=fixture();await api(get(),f.store,'du-team-test',access(identity(emails.persona05,'user-persona05')));const m=f.state.data.members.find(m=>m.id==='persona05')!;const c:Command={id:'change',kind:'update',entity:'members',entityId:m.id,expectedVersion:m.version,data:{email:'new@example.edu',reason:'Correo confirmado por coordinación'}};const next=execute(f.state,'persona01',c).state;assert.equal(next.data.members.find(m=>m.id==='persona05')!.authUserId,null);f.replace(next);assert.equal((await api(get(),f.store,'du-team-test',access(identity(emails.persona05,'user-persona05')))).status,403);assert.throws(()=>execute(next,'persona01',{...c,id:'blank',expectedVersion:next.data.members.find(m=>m.id==='persona05')!.version,data:{email:null,reason:'Sin correo'}}),/correo institucional exacto/);});
 test('coordinator cannot demote the last coordinator',()=>{const f=fixture();f.state.data.members.find(m=>m.id==='persona02')!.active=false;const m=f.state.data.members[0];assert.throws(()=>execute(f.state,'persona01',{id:'last',kind:'update',entity:'members',entityId:m.id,expectedVersion:m.version,data:{role:'Integrante',reason:'Cambio de rol'}}),/coordinador activo/);});
+
+test('Coordinación puede suspender acceso de inmediato con trabajo pendiente y restaurarlo sin perder responsabilidades',async()=>{
+ const f=fixture(),memberIdentity=identity(emails.persona05,'user-persona05');
+ await api(get(),f.store,'du-team-test',access(memberIdentity));
+ let state=execute(f.state,'persona01',{id:'pending-work',kind:'create',entity:'tasks',data:{title:'Trabajo que debe conservarse',ownerId:'persona05'}}).state;
+ const member=state.data.members.find(m=>m.id==='persona05')!;
+ assert.throws(()=>execute(state,'persona01',{id:'normal-deactivation',kind:'update',entity:'members',entityId:member.id,expectedVersion:member.version,data:{active:false,reason:'Baja normal'}}),/Reasigná/);
+ assert.throws(()=>execute(state,'persona05',{id:'self-suspension',kind:'update',entity:'members',entityId:member.id,expectedVersion:member.version,data:{accessSuspended:true,reason:'No autorizado'}}),/coordinación/i);
+ const tasks=structuredClone(state.data.tasks);
+ state=execute(state,'persona01',{id:'urgent-suspension',kind:'update',entity:'members',entityId:member.id,expectedVersion:member.version,data:{accessSuspended:true,reason:'Suspensión preventiva'}}).state;
+ assert.deepEqual(state.data.tasks,tasks);assert.equal(state.data.members.find(m=>m.id===member.id)!.active,true);assert.ok(state.audit.at(-1)!.fields.includes('accessSuspended'));f.replace(state);
+ for(const request of [get(),get('/api/history'),get('/api/export?format=json'),post('/api/command',{id:'blocked',kind:'create',entity:'tasks',data:{title:'No debe guardarse',ownerId:member.id}})])assert.equal((await api(request,f.store,'du-team-test',access(memberIdentity))).status,403);
+ const current=state.data.members.find(m=>m.id===member.id)!;
+ f.replace(execute(state,'persona01',{id:'restore-access',kind:'update',entity:'members',entityId:member.id,expectedVersion:current.version,data:{accessSuspended:false,reason:'Incidente resuelto'}}).state);
+ assert.equal((await api(get(),f.store,'du-team-test',access(memberIdentity))).status,200);assert.deepEqual(f.state.data.tasks,tasks);
+});
+
+test('La suspensión no permite dejar al equipo sin una Coordinación con acceso',()=>{
+ const f=fixture(),coordinator=f.state.data.members.find(m=>m.id==='persona02')!;
+ const state=execute(f.state,'persona01',{id:'suspend-other-coordinator',kind:'update',entity:'members',entityId:coordinator.id,expectedVersion:coordinator.version,data:{accessSuspended:true,reason:'Revisión preventiva'}}).state;
+ const own=state.data.members.find(m=>m.id==='persona01')!;
+ for(const change of [{role:'Integrante'},{accessSuspended:true}])assert.throws(()=>execute(state,'persona01',{id:crypto.randomUUID(),kind:'update',entity:'members',entityId:own.id,expectedVersion:own.version,data:{...change,reason:'Cambio inseguro'}}),/coordinador activo|otra persona de Coordinación/i);
+});
