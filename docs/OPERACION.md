@@ -20,6 +20,12 @@ Ese procedimiento conserva SELECT, RLS, propietarios y permisos de las funciones
 
 La aplicación manual no registra automáticamente una migración en Supabase. Antes de reconciliar o publicar migraciones del Tablero, contrastar su historial real y generar las nuevas mediante la herramienta oficial; no inventar versiones ni marcar operaciones como aplicadas sin comprobarlas. Un privilegio SELECT de anon no demuestra lectura pública: comprobar también RLS y consultas reales sin sesión. Esta corrección de perfiles no certifica todos los objetos, lectores ni cambios históricos del origen.
 
+## Lecturas institucionales del Tablero
+
+En `qa_entries` y `source_documents` se retiró la lectura anónima y se agregó una policy SELECT restrictiva institucional, conservando las policies anteriores y la lectura de cuentas BUE. `private.apply_access_grant(uuid,text)` dejó de ser ejecutable por clientes; las altas y la administración siguen mediante sus funciones autorizadas y propietarios.
+
+El procedimiento manual se conserva en `deploy/management-read-access-hardening.sql`, con el flag de aprobación comentado. Revisar destino, autorización y precondiciones antes de usarlo; corresponde al origen del Tablero, no a la base propia de DU ni al desarrollo local. No se ejecuta al compilar o desplegar. Si otra integración dependía de la lectura anónima de esas dos tablas, deberá adaptarse al acceso institucional: revisar esos consumidores antes de alterar permisos o quitar sus guards. El procedimiento no borra contenido y no registra automáticamente una migración.
+
 Nunca guardar los valores institucionales en el código, tests, documentación, HTML, JSON estáticos, variables públicas ni logs de compilación. Usar datos ficticios en las pruebas. Un cambio del código actual no limpia automáticamente el historial ni las publicaciones anteriores.
 
 Un cambio de repositorio no exige reinstalar ni migrar la base. Confirmar proyecto, cuenta, rama y dominio antes de modificar un despliegue. Para diagnosticar, usar metadatos sin valores de secretos.
