@@ -18,5 +18,19 @@ jobs:
       - run: npm run test:auth
       - run: npm run test:install
       - run: npm run build
+      - name: Formulario de tareas con datos ficticios
+        timeout-minutes: 10
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+          npx vite preview --host 127.0.0.1 --port 4361 > /tmp/du-ui.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4361 > /dev/null; then break; fi
+            sleep 1
+          done
+          DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/work-links-browser.mjs
+          DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/task-form-options-browser.mjs
       - run: npm run test:worker
       - run: npm run validate

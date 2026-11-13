@@ -9,11 +9,12 @@ export async function readQuery(request:Request,store:Store,key:string,actor:Row
    const entity=url.searchParams.get('entity')??'',offset=Number(url.searchParams.get('offset')??0),limit=Number(url.searchParams.get('limit')??50);if(!['tasks','projects','issues'].includes(entity)||!Number.isSafeInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>100)throw new DomainError('Página no válida.',400);
    const raw=JSON.parse(url.searchParams.get('filters')??'{}');if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new DomainError('Filtros no válidos.',400);const filters:Record<string,any>={};for(const key of ['q','owner','status','state','due','area','delivery','priority','kind','scope','policy','preset','sort','relationship','parent'])if(raw[key]!==undefined){if(typeof raw[key]!=='string')throw new DomainError('Filtro no válido.',400);filters[key]=raw[key];}for(const key of ['archived','independent'])if(raw[key]!==undefined){if(typeof raw[key]!=='boolean')throw new DomainError('Filtro no válido.',400);filters[key]=raw[key];}
    if(filters.relationship&&!['roots','children','blocked'].includes(filters.relationship))throw new DomainError('Elegí un vínculo de trabajo válido.',400);
+   if(entity==='tasks'){delete filters.parent;if(filters.relationship!=='blocked')delete filters.relationship;}
    if(entity==='issues'&&actor.role!=='Coordinación')filters.owner=actor.id;
-   // The work graph is stored in existing task records. Resolve ancestry and prerequisites
+   // The work graph is stored in existing task records. Resolve prerequisites
    // before paginating, so filters never depend on which page happens to be visible.
    // This also works with the deployed database schema, without a separate migration.
-   if(entity==='tasks'&&(filters.q||filters.relationship||filters.parent)){
+   if(entity==='tasks'&&(filters.q||filters.relationship)){
     const source=state??await store.load(key,{history:false});if(!source)throw new DomainError('No se pudo cargar el trabajo del equipo.',503);
     const {selectTasks}=await import('../shared/views.ts');const rows=selectTasks(source,{owner:'',state:'',due:'',independent:false,...filters},dateInBA());return json({rows:rows.slice(offset,offset+limit),total:rows.length});
    }

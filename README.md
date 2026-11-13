@@ -32,3 +32,5 @@ El proyecto existente de Vercel conserva sus variables privadas, Google OAuth y 
 No ejecutar `bootstrap:team`, `prepare:team` ni SQL de instalación sobre la base existente. `config/team-authorized.json` y `deploy/du-equipo-inicial.sql` son ejemplos ficticios para pruebas y una instalación nueva aislada.
 
 Ver [operación](docs/OPERACION.md) y [colaboración](docs/COLABORACION.md).
+
+Prueba de colaboración desde Codex
