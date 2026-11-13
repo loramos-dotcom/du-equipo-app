@@ -1,0 +1,13 @@
+.git
+.vercel-auth*
+.data
+.env
+.env.*
+node_modules
+test-results
+tests
+deploy
+*.tar.gz
+*.zip
+dist
+.generated

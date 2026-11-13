@@ -1,0 +1,7 @@
+import {mkdir,readFile,readdir,writeFile,cp} from 'node:fs/promises';
+import {build} from 'esbuild';
+import {join,extname} from 'node:path';
+const types={'.css':'text/css;charset=utf-8','.js':'text/javascript;charset=utf-8','.html':'text/html;charset=utf-8','.svg':'image/svg+xml','.txt':'text/plain;charset=utf-8','.woff2':'font/woff2','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif'};
+const assets={};async function walk(path,prefix=''){for(const f of await readdir(path,{withFileTypes:true})){if(f.isDirectory())await walk(join(path,f.name),prefix+'/'+f.name);else{const ext=extname(f.name),binary=['.woff2','.png','.jpg','.jpeg','.gif','.webp'].includes(ext),bytes=await readFile(join(path,f.name));assets[prefix+'/'+f.name]={body:bytes.toString(binary?'base64':'utf8'),encoding:binary?'base64':'utf8',type:types[ext]??'application/octet-stream'};}}}
+await walk('web-dist');await mkdir('.generated',{recursive:true});await writeFile('.generated/assets.js','export default '+JSON.stringify(assets));await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursive:true});
+await build({entryPoints:['worker/index.ts'],bundle:true,platform:'browser',format:'esm',target:'es2022',outfile:'dist/server/index.js',minify:true});await cp('.openai/hosting.json','dist/.openai/hosting.json');await cp('drizzle','dist/.openai/drizzle',{recursive:true});console.log('Worker y migraciones preparados.');

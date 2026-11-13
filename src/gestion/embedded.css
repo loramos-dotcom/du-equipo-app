@@ -1,0 +1,31 @@
+.gestion-root .page-header h1 { color: #1d3343 !important; }
+.gestion-root .page-header p { color: #607384 !important; }
+.gestion-root .page-header .eyebrow { color: #035c80 !important; }
+.gestion-root .page-header-title { min-height: 0 !important; }
+.gestion-root .page-header-content { gap: 18px !important; padding-top: 10px !important; padding-bottom: 10px !important; }
+.gestion-root .section-kicker { color: #035c80 !important; }
+.gestion-root .print-button, .gestion-root .mode-tabs button, .gestion-root .topbar-command {
+  color: #1d3343 !important; background: #fcfcfc !important; border: 1px solid #b6c9d3 !important; box-shadow: none !important;
+}
+.gestion-root .mode-tabs { background: #eef3f6 !important; }
+.gestion-root .print-button.report-doc-button { color: #fcfcfc !important; background: #035c80 !important; border-color: #035c80 !important; }
+.gestion-root .primary-button, .gestion-root .mode-tabs button.is-active {
+  background: #ffcd02 !important;
+  color: #1d3343 !important;
+  border-color: #ffcd02 !important;
+  box-shadow: none !important;
+}
+.gestion-root .primary-button:hover, .gestion-root .mode-tabs button.is-active:hover { background: #f4c300 !important; }
+@media (max-width: 720px) {
+  .gestion-root .project-summary { display: grid !important; grid-template-columns: 32px minmax(0,1fr); gap: 12px !important; padding: 18px 14px !important; }
+  .gestion-root .project-summary > .expand-button { grid-column: 1; width: 32px; height: 32px; }
+  .gestion-root .project-summary > .project-main { grid-column: 2; min-width: 0; }
+  .gestion-root .project-summary > .project-actions { grid-column: 2; grid-row: 2; justify-content: flex-start; margin: 0; }
+  .gestion-root .project-title-row { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  .gestion-root .project-title-row > div { width: 100%; min-width: 0; }
+  .gestion-root .project-title-row h3 { font-size: 16px !important; line-height: 1.4 !important; word-break: normal !important; overflow-wrap: anywhere; }
+  .gestion-root .project-info-strip, .gestion-root .project-meta { gap: 8px !important; }
+  .gestion-root .meta-chip { flex-wrap: wrap; }
+  .gestion-root .next-step-row { grid-template-columns: 28px minmax(0,1fr) !important; }
+  .gestion-root .next-step-row .resolve-button { grid-column: 2; justify-self: start; }
+}

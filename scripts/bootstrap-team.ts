@@ -1,0 +1,10 @@
+import {readFile} from 'node:fs/promises';
+import {teamConfig} from '../server/auth.ts';
+import {supabaseStore} from '../server/supabase-store.ts';
+import {institutionalState} from '../shared/team.ts';
+const config=teamConfig(process.env);
+const roster=JSON.parse(await readFile(new URL('../config/team-authorized.json',import.meta.url),'utf8'));
+const store=supabaseStore(config);
+if(await store.load(config.workspaceId))throw Error('El espacio ya existe. El alta inicial no modifica espacios existentes.');
+await store.create(config.workspaceId,institutionalState(config.workspaceId,roster.emails,roster.operator,new Date(),roster.initialCoordinator));
+console.log('Espacio institucional creado. No se cargaron proyectos ni tareas ficticios.');

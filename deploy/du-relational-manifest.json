@@ -1,0 +1,6 @@
+{
+  "generator": "scripts/generate-relational-migration.mjs",
+  "schemaSha256": "d275b88815d03276e586889638c14289668181d19b18b320491757caebfaeaec",
+  "migrationSha256": "51377485b3783542fe68f92cb0576b285e666b24f40c2484af89991a0328bd07",
+  "legacyRetained": true
+}

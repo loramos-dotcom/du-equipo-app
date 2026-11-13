@@ -1,0 +1,72 @@
+/* Keep catalog summaries aligned; the project detail retains the full text. */
+.projects-grid .project-card {
+  display: flex;
+  flex-direction: column;
+  height: 410px;
+}
+
+.projects-grid .project-card > .card-top {
+  flex: 0 0 16px;
+}
+
+.projects-grid .project-card h3,
+.projects-grid .project-card .project-outcome,
+.projects-grid .project-card .next-step > p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+.projects-grid .project-card h3 {
+  height: 3.1em;
+  -webkit-line-clamp: 2;
+}
+
+.projects-grid .project-card .project-outcome {
+  height: 5.1em;
+  -webkit-line-clamp: 3;
+}
+
+.projects-grid .project-card .card-status {
+  flex: 0 0 50px;
+}
+
+.projects-grid .project-card .next-step {
+  flex-shrink: 0;
+}
+
+.projects-grid .project-card .next-step > p {
+  height: 3.3em;
+  -webkit-line-clamp: 2;
+}
+
+.projects-grid .project-card .card-footer {
+  margin-top: auto;
+  flex: 0 0 60px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.projects-grid .project-card .card-footer > .person {
+  min-width: 0;
+  flex: 1;
+}
+
+.projects-grid .project-card .card-footer .person > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.projects-grid .project-card .card-footer > span:last-child {
+  max-width: 55%;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}

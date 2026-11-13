@@ -1,0 +1,5 @@
+{
+  "source": "supabase/schemas/du_calendar.sql",
+  "sha256": "685ed79e43a1fddabe7d60e6454797aa269bc707591f933c856d7c89f7f0cdcd",
+  "additive": true
+}

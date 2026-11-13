@@ -1,0 +1,19 @@
+{
+  "operator": "persona05@bue.edu.ar",
+  "initialCoordinator": "persona01@bue.edu.ar",
+  "infrastructure": {
+    "supabaseProjectRef": "project-ref",
+    "supabaseOwner": "persona05@bue.edu.ar"
+  },
+  "emails": {
+    "persona01": "persona01@bue.edu.ar",
+    "persona02": "persona02@bue.edu.ar",
+    "persona03": "persona03@bue.edu.ar",
+    "persona04": "persona04@bue.edu.ar",
+    "persona05": "persona05@bue.edu.ar",
+    "persona06": "persona06@bue.edu.ar",
+    "persona07": "persona07@bue.edu.ar",
+    "persona08": "persona08@bue.edu.ar",
+    "persona09": "persona09@bue.edu.ar"
+  }
+}

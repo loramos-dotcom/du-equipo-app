@@ -1,0 +1,5 @@
+{
+  "source": "supabase/schemas/du_issue_history.sql",
+  "sha256": "ef5b1963d3a1f392956f973ef4a31c6d60861bf96792d4c5c539d5f732fe53d3",
+  "additive": true
+}

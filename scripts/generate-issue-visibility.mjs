@@ -1,0 +1,2 @@
+import{readFile,writeFile}from'node:fs/promises';import{createHash}from'node:crypto';
+const sql=await readFile('supabase/schemas/du_issue_history.sql','utf8');await writeFile('deploy/du-issue-visibility.sql',sql);await writeFile('deploy/du-issue-visibility-manifest.json',JSON.stringify({source:'supabase/schemas/du_issue_history.sql',sha256:createHash('sha256').update(sql).digest('hex'),additive:true},null,2)+'\n');

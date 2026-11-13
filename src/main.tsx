@@ -1,0 +1,12 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App';
+import './styles.css';
+import './usability.css';
+import './brand.css';
+import './project-cards.css';
+import './completion.css';
+import './work-links.css';
+import './work-meaning.css';
+import './workspace-design.css';
+createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
