@@ -1,6 +1,6 @@
 # DU Equipo
 
-Aplicación de coordinación del equipo: tareas y subtareas, compromisos semanales, proyectos vinculados al Tablero de Gestión, incidencias, reuniones, minutas y respaldos cifrados.
+Aplicación de coordinación del equipo: tareas, compromisos semanales, proyectos vinculados al Tablero de Gestión, incidencias, reuniones, minutas y respaldos cifrados.
 
 El repositorio contiene código y ejemplos ficticios. Las cuentas autorizadas, datos institucionales, credenciales de Google y copias privadas se mantienen fuera del repositorio.
 
