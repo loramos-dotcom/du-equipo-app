@@ -8,6 +8,8 @@ import {managementUrl,managementPublishableKey,managementReturnPaths} from '../s
 import type {ManagementPage} from '../shared/management-config.ts';
 import {managementProjectRef} from '../shared/project-context.ts';
 import type {Row} from '../shared/model.ts';
+import {privateDataRevision,readStoredPrivateDataCheck} from './private-data-check.ts';
+import {parsePrivateReferenceData,enrichManagementRecords} from './private-reference-data.ts';
 
 const readOnly=new Set(['areas','profiles','area_permissions','dashboard_permissions','access_grants','du_management_revisions','audit_log']);
 const editable=new Set(['projects','project_areas','project_updates','next_steps','next_step_owners','attachments','dashboard_favorites','indicators','milestones','budget_execution','special_views']);
@@ -95,6 +97,16 @@ export async function managementRequest(request:Request,config:TeamConfig,identi
    await managementRevision((await auth.session()).access_token,transport);
    return auth.finish(Response.json({connected:true,duEmail:identity.email,user:{id:user.id,email:user.email,app_metadata:{provider:'google'}}}));
   }
+  if(url.pathname==='/api/gestion/security-check'){
+   if(request.method!=='GET')return auth.finish(Response.json({error:'Usá GET para consultar esta comprobación.'},{status:405,headers:{allow:'GET','cache-control':'private, no-store'}}));
+   const user=await auth.user();if(!user)throw new DomainError('Ingresá con tu cuenta institucional para comprobar los datos privados.',401);
+   confirmedUser(user,identity);const session=await auth.session();
+   const before=privateDataRevision(await managementRevision(session.access_token,transport));
+   const report=await readStoredPrivateDataCheck(session.access_token,transport);
+   const after=privateDataRevision(await managementRevision(session.access_token,transport));
+   if(before!==after)throw new DomainError('Los datos cambiaron durante la comprobación. Reintentá.',409);
+   return auth.finish(Response.json({...report,privateReferenceConfigured:!!parsePrivateReferenceData(process.env.DU_PRIVATE_REFERENCE_DATA)},{headers:{'cache-control':'private, no-store','x-content-type-options':'nosniff'}}));
+  }
   if(url.pathname==='/api/gestion/overview'&&request.method==='GET'){
    const user=await auth.user();if(!user)return auth.finish(Response.json({connected:false,issues:[],steps:[],updates:[],priorities:[]}));confirmedUser(user,identity);const session=await auth.session();
    const version=await managementRevision(session.access_token,transport),etag='"du-overview-v3-'+version.projects_revision+'-'+version.portfolio_revision+'-'+version.access_revision+'-'+canViewTeamIssues+'"';
@@ -118,6 +130,14 @@ export async function managementRequest(request:Request,config:TeamConfig,identi
   if(body&&new TextEncoder().encode(body).length>1000000)throw new DomainError('La solicitud supera el tamaño permitido.',413);
   const upstream=await transport(target,{method:request.method,headers,body,redirect:'error'});
   const outputHeaders=new Headers();for(const key of ['content-type','content-range','preference-applied','range-unit']){const value=upstream.headers.get(key);if(value)outputHeaders.set(key,value);}
+  // Only rows already returned under the source user's RLS can receive private references.
+  // Never enrich errors, HEAD, RPCs, writes, other tables or unrequested columns.
+  const referenceTable=target.pathname==='/rest/v1/projects'?'projects':target.pathname==='/rest/v1/special_views'?'special_views':null;
+  const mediaType=(upstream.headers.get('content-type')??'').split(';')[0].trim().toLowerCase();
+  if(request.method==='GET'&&upstream.ok&&referenceTable&&(mediaType==='application/json'||mediaType.startsWith('application/')&&mediaType.endsWith('+json'))){
+   const reference=parsePrivateReferenceData(process.env.DU_PRIVATE_REFERENCE_DATA);
+   if(reference){const raw=await upstream.text(),received:unknown=JSON.parse(raw),enriched=enrichManagementRecords(referenceTable,received,reference);return auth.finish(new Response(enriched===received?raw:JSON.stringify(enriched),{status:upstream.status,headers:outputHeaders}));}
+  }
   return auth.finish(new Response(upstream.body,{status:upstream.status,headers:outputHeaders}));
  }catch(error){
   if(url.pathname==='/auth/gestion/callback'){

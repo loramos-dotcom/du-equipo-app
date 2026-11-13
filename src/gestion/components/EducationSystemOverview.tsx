@@ -6,6 +6,7 @@ import teacherIcon from '../assets/education-teacher.png'
 import {
   educationLevelLabels,
   educationLevels,
+  educationValueText,
   type EducationSectorCounts,
   type EducationSystemCopy,
   type EducationSystemData,
@@ -40,8 +41,8 @@ function TotalPanel({ icon, values, label, stateLabel, privateLabel, note }: {
     <div className="education-total-wrap">
       <span className="education-icon" aria-hidden="true"><IconMask source={icon} /></span>
       <div className="education-total-panel">
-        <strong className={totalLength >= 7 ? 'is-long-total' : undefined}><mark>{values.total}</mark><span>{label}</span></strong>
-        <div><span>{stateLabel}<b>{values.state}</b></span><span>{privateLabel}<b>{values.private}</b></span></div>
+        <strong className={totalLength >= 7 ? 'is-long-total' : undefined}><mark>{educationValueText(values.total)}</mark><span>{label}</span></strong>
+        <div><span>{stateLabel}<b>{educationValueText(values.state)}</b></span><span>{privateLabel}<b>{educationValueText(values.private)}</b></span></div>
       </div>
       {note && <small className="education-total-note">{note}</small>}
     </div>
@@ -58,7 +59,7 @@ function LevelList({ values, labels }: {
 }) {
   return (
     <div className="education-level-list">
-      {educationLevels.map((level) => <div className="education-level-row" key={level}><strong>{values[level].total}</strong><span>{labels[level]}</span><small>E: {values[level].state}<i />P: {values[level].private}</small></div>)}
+      {educationLevels.map((level) => <div className="education-level-row" key={level}><strong>{educationValueText(values[level].total)}</strong><span>{labels[level]}</span><small>E: {educationValueText(values[level].state)}<i />P: {educationValueText(values[level].private)}</small></div>)}
     </div>
   )
 }
@@ -66,8 +67,8 @@ function LevelList({ values, labels }: {
 function SummaryPanel({ values, stateLabel, privateLabel }: { values: EducationSectorCounts; stateLabel: string; privateLabel: string }) {
   return (
     <div className="education-summary-panel">
-      <strong><mark>{values.total}</mark></strong>
-      <div><span>{stateLabel}<b>{values.state}</b></span><span>{privateLabel}<b>{values.private}</b></span></div>
+      <strong><mark>{educationValueText(values.total)}</mark></strong>
+      <div><span>{stateLabel}<b>{educationValueText(values.state)}</b></span><span>{privateLabel}<b>{educationValueText(values.private)}</b></span></div>
     </div>
   )
 }
@@ -114,15 +115,15 @@ export function EducationSystemOverview({ data, onEdit }: EducationSystemOvervie
           <div className="education-other-services">
             <strong>{copy.otherServicesTitle}</strong>
             <div>
-              <span title={copy.schoolsLabel}><IconMask source={schoolIcon} className="is-service-icon" /><b>{data.otherServices.services}</b></span>
-              <span title={copy.studentsLabel}><IconMask source={studentsIcon} className="is-service-icon" /><b>{data.otherServices.students}</b></span>
+              <span title={copy.schoolsLabel}><IconMask source={schoolIcon} className="is-service-icon" /><b>{educationValueText(data.otherServices.services)}</b></span>
+              <span title={copy.studentsLabel}><IconMask source={studentsIcon} className="is-service-icon" /><b>{educationValueText(data.otherServices.students)}</b></span>
             </div>
           </div>
         </div>
       </div>
-      <footer className="education-source-footer">
+      {copy.sources.trim() && <footer className="education-source-footer">
         <p><SourceText value={copy.sources} /></p>
-      </footer>
+      </footer>}
     </section>
   )
 }

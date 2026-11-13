@@ -9,7 +9,7 @@
     "dev": "node --experimental-strip-types server/local.ts",
     "build": "tsc --noEmit && vite build && node scripts/build.mjs",
     "build:team": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/domain.test.ts tests/api.test.ts tests/audit.test.ts tests/home.test.ts tests/usability.test.ts tests/deletion.test.ts tests/updates.test.ts tests/management.test.ts tests/management-postgres.test.ts tests/project-context.test.ts tests/meetings-complete.test.ts tests/daily-jobs.test.ts tests/structure-complete.test.ts tests/relational.test.ts tests/backups.test.ts tests/portfolio-access.test.ts tests/calendar.test.ts tests/work-links.test.ts tests/task-form.test.ts",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/domain.test.ts tests/api.test.ts tests/audit.test.ts tests/home.test.ts tests/usability.test.ts tests/deletion.test.ts tests/updates.test.ts tests/management.test.ts tests/management-postgres.test.ts tests/project-context.test.ts tests/meetings-complete.test.ts tests/daily-jobs.test.ts tests/structure-complete.test.ts tests/relational.test.ts tests/backups.test.ts tests/portfolio-access.test.ts tests/calendar.test.ts tests/work-links.test.ts tests/task-form.test.ts tests/education-security.test.ts tests/map-security.test.ts tests/private-data-check.test.ts tests/private-reference-data.test.ts",
     "validate": "node scripts/validate-artifact.mjs",
     "test:worker": "node --test tests/worker.test.mjs",
     "test:auth": "node --experimental-strip-types --test tests/team.test.ts tests/auth.test.ts tests/postgres.test.ts",
