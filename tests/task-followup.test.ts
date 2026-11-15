@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execute,publicState} from '../shared/domain.ts';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {activeTaskIssues,taskFollowups,taskFollowupKey,requestsForTask} from '../shared/task-followup.ts';
 import {pendingInterventions} from '../shared/followup.ts';
 import {stateDelta} from '../server/relational.ts';

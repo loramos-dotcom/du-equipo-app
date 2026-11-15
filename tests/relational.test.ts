@@ -1,6 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {PGlite} from '@electric-sql/pglite';import {readFile} from 'node:fs/promises';
 import {seed} from '../shared/seed.ts';import {execute} from '../shared/domain.ts';import {stateDelta} from '../server/relational.ts';
 import {taskFollowupKey,activeTaskIssues} from '../shared/task-followup.ts';
+import {taskProjectAssignmentSql} from '../server/task-project-assignment.ts';
 export async function relationalFixture(){
  const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create role supabase_auth_admin;grant usage on schema public to anon,authenticated,service_role,supabase_auth_admin;');
  await db.exec(await readFile(new URL('../supabase/schemas/du_equipo.sql',import.meta.url),'utf8'));
@@ -9,6 +10,27 @@ export async function relationalFixture(){
  await db.exec('begin;'+await readFile(new URL('../deploy/du-relational-migration.sql',import.meta.url),'utf8')+'commit;');return {db,state};
 }
 export async function commit(db:PGlite,delta:ReturnType<typeof stateDelta>){const values=Object.values(delta),placeholders=values.map((_,i)=>'$'+(i+1));return (await db.query<{ok:boolean}>('select public.du_commit_state('+placeholders.join(',')+') ok',values)).rows[0].ok;}
+
+test('La asignación completa crea y reutiliza proyectos, conserva tareas e historial y activa la regla en un solo commit',async()=>{
+ const {db,state}=await relationalFixture();try{
+  const mapping=[{code:'T106',taskTitle:state.data.tasks[5].title,projectTitle:"Línea d'ensayo",expectedVersion:1},{code:'T101',taskTitle:state.data.tasks[0].title,projectTitle:'Proyecto compartido de prueba',externalId:'00000000-0000-4000-8000-000000000099',expectedVersion:1},{code:'T103',taskTitle:state.data.tasks[2].title,projectTitle:state.data.projects[1].title,expectedVersion:1}],sql=taskProjectAssignmentSql(state.workspaceId,'persona01','project-link-fixture',mapping);
+  await db.exec(sql);const stored=(await db.query<{v:any}>('select public.du_read_state($1) v',[state.workspaceId])).rows[0].v;
+  assert.equal(stored.settings.requireTaskProject,true);assert.equal(stored.data.projects.length,state.data.projects.length+1);assert.equal(stored.data.tasks.length,state.data.tasks.length);assert.ok(stored.data.tasks.every((task:any)=>task.projectId));assert.equal(stored.data.tasks.find((task:any)=>task.code==='T101').projectId,'gestion:00000000-0000-4000-8000-000000000099');
+  for(const original of state.data.tasks){const row=stored.data.tasks.find((task:any)=>task.id===original.id);for(const [key,value] of Object.entries(original))if(!['projectId','version','updatedAt','updatedBy'].includes(key))assert.deepEqual(row[key],value);}
+  assert.deepEqual(stored.snapshots,state.snapshots);assert.deepEqual(stored.data.issues,state.data.issues);assert.ok(stored.audit.some((event:any)=>event.entity==='settings'&&event.fields.includes('requireTaskProject')));
+  await db.exec(sql);const repeated=(await db.query<{v:any}>('select public.du_read_state($1) v',[state.workspaceId])).rows[0].v;assert.equal(repeated.revision,stored.revision);assert.equal(repeated.audit.length,stored.audit.length);
+ }finally{await db.close();}
+});
+
+test('Una asignación obsoleta, incompleta o sin permisos no crea proyectos ni aplica vínculos parciales',async()=>{
+ const {db,state}=await relationalFixture();try{
+  const mapping=[{code:'T106',taskTitle:state.data.tasks[5].title,projectTitle:'Destino de prueba',expectedVersion:1},{code:'T101',taskTitle:state.data.tasks[0].title,projectTitle:'Otro destino',expectedVersion:99}];
+  await assert.rejects(()=>db.exec(taskProjectAssignmentSql(state.workspaceId,'persona01','stale-assignment',mapping)),/Task changed/);
+  await assert.rejects(()=>db.exec(taskProjectAssignmentSql(state.workspaceId,'persona05','member-assignment',mapping)),/Coordination/);
+  await assert.rejects(()=>db.exec(taskProjectAssignmentSql(state.workspaceId,'persona01','missing-assignment',[mapping[1]])),/Unmapped task/);
+  const stored=(await db.query<{v:any}>('select public.du_read_state($1) v',[state.workspaceId])).rows[0].v;assert.equal(stored.revision,state.revision);assert.equal(stored.data.projects.length,state.data.projects.length);assert.deepEqual(stored.audit,state.audit);assert.deepEqual([...stored.data.tasks].sort((a,b)=>a.id.localeCompare(b.id)),[...state.data.tasks].sort((a,b)=>a.id.localeCompare(b.id)));
+ }finally{await db.close();}
+});
 
 test('Bloqueos y ayuda guarda y destraba tarea, seguimiento y pedido en la estructura existente sin migraciones nuevas',async()=>{
  const {db,state}=await relationalFixture();try{

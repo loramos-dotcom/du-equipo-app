@@ -3,7 +3,7 @@ import type {User} from '@supabase/supabase-js';
 import {managementRoute,managementRequest,managementAuth} from '../server/management.ts';
 import {supabaseStore} from '../server/supabase-store.ts';
 import {managementUrl,managementPublishableKey} from '../shared/management-config.ts';
-import {teamRequest} from '../server/team.ts';import {institutionalState} from '../shared/team.ts';
+import {teamRequest} from '../server/team.ts';import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {flattenProjects,filterProjectTree,projectCatalog,projectPath} from '../src/gestion/domain/projectTree.ts';
 import type {Project} from '../src/gestion/domain/types.ts';
 const config={origin:'https://du.example.edu',supabaseUrl:'https://du-project.supabase.co',publishableKey:'sb_publishable_du_fixture',secretKey:'sb_secret_never_in_proxy',workspaceId:'management-test'};

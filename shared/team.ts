@@ -6,7 +6,7 @@ export type VerifiedIdentity={id:string;email:string;provider:'google';verified:
 export type MembershipState=Pick<State,'accessMode'>&{data:{members:Row[]}};
 export const normalizeEmail=(email:string)=>email.trim().toLowerCase();
 export function institutionalState(workspaceId:string,emails:Record<string,string>,operator:string,now=new Date(),initialCoordinator=operator):State{
- const s=seed(now);s.workspaceId=workspaceId;s.accessMode='institutional';
+ const s=seed(now);s.settings.requireTaskProject=true;s.workspaceId=workspaceId;s.accessMode='institutional';
  for(const key of Object.keys(s.data) as (keyof State['data'])[])if(!['members','areas','catalogs'].includes(key))s.data[key]=[];
  const seen=new Set<string>();
  for(const id of Object.keys(emails))if(!s.data.members.some(m=>m.id===id))throw new Error('Integrante desconocido: '+id);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {mkdir,writeFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';import {seed} from '../shared/seed.ts';import {api} from '../server/api.ts';import {dateInBA,addDays} from '../shared/model.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import {seed} from '../shared/seed.ts';import {api} from '../server/api.ts';import {dateInBA,addDays} from '../shared/model.ts';
 const require=createRequire(import.meta.url),{chromium}=require('playwright'),origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4367';
 const emails={persona01:'persona01@example.edu',persona02:'persona02@example.edu',persona05:'persona05@example.edu'},identity={id:'verified-persona05',email:emails.persona05,provider:'google',verified:true};let state=institutionalState('inline-project',emails,emails.persona01),failProject=false;
 state.data.projects=seed().data.projects.filter(project=>project.id==='p1');

@@ -1,7 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import type {User} from '@supabase/supabase-js';
 import {teamConfig,verifiedGoogleIdentity,requestAuth} from '../server/auth.ts';import {teamRequest} from '../server/team.ts';
-import {institutionalState} from '../shared/team.ts';import type {State} from '../shared/model.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import type {State} from '../shared/model.ts';
 function fixture(){let state=institutionalState('du-team-test',{persona01:'persona01@bue.edu.ar'},'persona01@bue.edu.ar');return {get state(){return state;},store:{async load(){return structuredClone(state);},async create(){throw Error('unexpected');},async save(_key:string,revision:number,next:State){if(state.revision!==revision)return false;state=next;return true;}}};}
 const config={origin:'https://du.example.edu',supabaseUrl:'https://project.supabase.co',publishableKey:'sb_publishable_fixture',secretKey:'sb_secret_fixture',workspaceId:'du-team-test'};
 const user={id:'user-persona01',email:'persona01@bue.edu.ar',email_confirmed_at:'2026-10-19',app_metadata:{provider:'google'},identities:[{provider:'google',identity_data:{email:'persona01@bue.edu.ar',email_verified:true}}]} as unknown as User;

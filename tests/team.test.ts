@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';import type {VerifiedIdentity} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import type {VerifiedIdentity} from '../shared/team.ts';
 import {api} from '../server/api.ts';import {execute} from '../shared/domain.ts';import type {State,Command} from '../shared/model.ts';
 const emails={persona01:'persona01@example.edu',persona02:'persona02@example.edu',persona05:'persona05@example.edu'};
 export function fixture(){let state=institutionalState('du-team-test',emails,emails.persona01);return {get state(){return state;},replace(s:State){state=s;},store:{async load(){return structuredClone(state);},async create(){throw Error('Must not create on login');},async save(_key:string,revision:number,next:State){if(state.revision!==revision)return false;state=structuredClone(next);return true;}}};}

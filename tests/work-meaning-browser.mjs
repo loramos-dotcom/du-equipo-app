@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {mkdir,writeFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';import {api} from '../server/api.ts';import {execute} from '../shared/domain.ts';import {dateInBA,weekStart,addDays} from '../shared/model.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import {api} from '../server/api.ts';import {execute} from '../shared/domain.ts';import {dateInBA,weekStart,addDays} from '../shared/model.ts';
 const require=createRequire(import.meta.url),{chromium}=require('playwright'),origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4330',today=dateInBA(),week=weekStart(today),roster={persona01:'persona01@example.edu',persona02:'persona02@example.edu',persona05:'persona05@example.edu'};
 let state=institutionalState('meaning-browser',roster,roster.persona01),identity={id:'verified-persona05',email:roster.persona05,provider:'google',verified:true};
 state.data.members.forEach(row=>row.authUserId='verified-'+row.id);

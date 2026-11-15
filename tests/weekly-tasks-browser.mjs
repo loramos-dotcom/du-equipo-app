@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {execute} from '../shared/domain.ts';
 import {dateInBA,weekStart} from '../shared/model.ts';
 import {api} from '../server/api.ts';

@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {PGlite} from '@electric-sql/pglite';import {readFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 test('Postgres schema denies raw client access, restricts signup, and detects stale writes',async()=>{
  const db=new PGlite();try{
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create role supabase_auth_admin; grant usage on schema public to anon, authenticated, service_role, supabase_auth_admin;');

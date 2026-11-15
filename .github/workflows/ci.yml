@@ -35,6 +35,7 @@ jobs:
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/weekly-tasks-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/portfolio-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/task-followup-browser.mjs
+          DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/required-projects-browser.mjs
       - name: Capturas de Mi semana con datos ficticios
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -67,4 +68,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
       - run: npm run test:worker
+      - name: Capturas de proyecto obligatorio con datos ficticios
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: required-projects-review
+          path: |
+            test-results/required-projects-*.png
+            test-results/required-projects-browser.json
+          if-no-files-found: ignore
+          retention-days: 3
       - run: npm run validate

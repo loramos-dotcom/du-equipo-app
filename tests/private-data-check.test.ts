@@ -5,7 +5,7 @@ import {summarizeStoredPrivateData,readStoredPrivateDataCheck,privateDataRevisio
 import {managementRequest} from '../server/management.ts';
 import {managementUrl,managementPublishableKey} from '../shared/management-config.ts';
 import {teamRequest} from '../server/team.ts';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 
 const config={origin:'https://du.example.edu',supabaseUrl:'https://du-fixture.supabase.co',publishableKey:'public-fixture',secretKey:'fixture-admin-credential',workspaceId:'du-check-fixture'};
 const identity={id:'fixture-du-user',email:'member@example.edu',provider:'google' as const,verified:true as const};

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {execute} from '../shared/domain.ts';
 import {api} from '../server/api.ts';
 import {emptyTaskFilters,preferredMeeting,selectTasks,taskFilterLabels} from '../shared/views.ts';

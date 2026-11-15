@@ -96,6 +96,7 @@ export interface NextStep {
 }
 
 export interface Project {
+  duLocalId?: string
   sourceFields?: Record<string,unknown>
   id: string
   parentId?: string

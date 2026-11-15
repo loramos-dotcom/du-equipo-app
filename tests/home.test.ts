@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {homeWork} from '../shared/home.ts';
 import {calendarFollowups} from '../shared/calendar.ts';
 import type {TeamEvent} from '../shared/calendar.ts';

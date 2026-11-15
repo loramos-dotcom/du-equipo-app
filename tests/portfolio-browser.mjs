@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {mkdir,writeFile,readFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';import {api} from '../server/api.ts';import {execute} from '../shared/domain.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import {api} from '../server/api.ts';import {execute} from '../shared/domain.ts';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 const origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4249',boardOrigin='http://127.0.0.1:4250';
 const email='persona05@bue.edu.ar',user={id:'00000000-0000-4000-8000-000000000001',email,app_metadata:{provider:'google'},email_confirmed_at:'2026-10-20',user_metadata:{name:'Persona 05'},identities:[{provider:'google',identity_data:{email,email_verified:true}}]};

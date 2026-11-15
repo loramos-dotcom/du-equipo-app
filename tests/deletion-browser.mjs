@@ -1,7 +1,7 @@
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {institutionalState} from '../shared/team.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {execute} from '../shared/domain.ts';
 import {api} from '../server/api.ts';
 import {dateInBA,weekStart} from '../shared/model.ts';

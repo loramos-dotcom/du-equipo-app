@@ -1,5 +1,5 @@
 import {createRequire} from 'node:module';import {mkdir,writeFile,readFile} from 'node:fs/promises';import assert from 'node:assert/strict';
-import {institutionalState} from '../shared/team.ts';import {publicState,execute} from '../shared/domain.ts';
+import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import {publicState,execute} from '../shared/domain.ts';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 const roster=JSON.parse(await readFile('config/team-authorized.json','utf8'));let state=institutionalState('browser-test',roster.emails,roster.operator,new Date(),roster.initialCoordinator);
 state=execute(state,'persona01',{id:'prepare',kind:'create',entity:'tasks',data:{title:'Tarea privada de sesión',ownerId:'persona01'}}).state;
