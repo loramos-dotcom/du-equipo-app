@@ -55,6 +55,7 @@ test('Confirmar y cerrar conserva las tareas de la semana, aunque luego cambien 
  let s=move(fixture(),'normal',true);
  s=execute(s,owner,{id:'confirm',kind:'confirm_plan',data:{weekId:week,ownerId:owner}},now).state;
  assert.deepEqual(s.snapshots.find(sn=>sn.kind==='plan')!.payload.weekTaskIds[owner],['priority','normal']);
+ assert.deepEqual(weeklyTasks(s,week,owner,'2026-11-23').selected.map(r=>r.task.id),['priority','normal']);
  s=execute(s,'persona01',{id:'close',kind:'close_week',expectedVersion:s.data.weeks.find(w=>w.id===week)!.version,data:{weekId:week}},now).state;
  const frozen=weeklyTasks(s,week,owner,today);assert.equal(frozen.selected.length,2);assert.equal(frozen.rest.length,0);
  s.data.tasks=[];assert.deepEqual(weeklyTasks(s,week,owner,today),frozen);

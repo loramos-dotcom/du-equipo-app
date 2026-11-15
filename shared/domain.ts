@@ -341,8 +341,9 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   const current=d.plans.find(p=>p.weekId===a.weekId&&p.ownerId===task.ownerId);
   if(a.planVersion!==(current?.version??null))fail('El plan cambió. Actualizá la semana antes de mover la tarea.',409);
   if(!a.selected&&d.commitments.some(c=>c.taskId===task.id&&c.weekId===a.weekId))fail('Esta tarea tiene un avance acordado. Reprogramá su compromiso para moverlo a otra semana.');
+  const defaults=weeklyTasks(s,a.weekId,task.ownerId,today).selected.map(row=>[row.task.id,true]);
   const plan=invalidateReady(a.weekId,task.ownerId);
-  plan.taskSelections={...plan.taskSelections,[task.id]:a.selected};
+  plan.taskSelections={...Object.fromEntries(defaults),...plan.taskSelections,[task.id]:a.selected};
   result={id:task.id,weekId:a.weekId,selected:a.selected};break;
  }
  case 'upsert_commitment':{const r=addCommitment(a.taskId,a.weekId,a.result,!!a.isPriority,a.targetDate);result={id:r.id};break;}
@@ -353,7 +354,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  }
  case 'acknowledge_transfer':{const c=get('commitments',command.entityId!);version(c);closed(c);if(actorId!==c.ownerId)fail('El nuevo responsable debe reconocer el compromiso.',403);c.transferPending=false;c.acknowledgedAt=at;break;}
  case 'confirm_plan':{
-  openWeek(a.weekId);activeMember(a.ownerId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(p.confirmedAt)fail('El plan ya fue confirmado.');const cs=d.commitments.filter(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId);if(cs.some(c=>c.transferPending))fail('Reconocé los compromisos transferidos antes de confirmar.');const ids=weeklyTasks(s,a.weekId,a.ownerId,today).selected.map(row=>row.task.id);snapshot('plan',p.id,{plan:p,commitments:cs,weekTaskIds:{[a.ownerId]:ids},tasks:workSnapshotRows(d.tasks,[...ids,...cs.map(c=>c.taskId)]),member:get('members',p.ownerId)},1);p.status='Confirmada';p.confirmedAt=at;break;
+  openWeek(a.weekId);activeMember(a.ownerId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(p.confirmedAt)fail('El plan ya fue confirmado.');const cs=d.commitments.filter(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId);if(cs.some(c=>c.transferPending))fail('Reconocé los compromisos transferidos antes de confirmar.');const ids=weeklyTasks(s,a.weekId,a.ownerId,today).selected.map(row=>row.task.id);p.taskSelections={...p.taskSelections,...Object.fromEntries(ids.map(id=>[id,true]))};snapshot('plan',p.id,{plan:p,commitments:cs,weekTaskIds:{[a.ownerId]:ids},tasks:workSnapshotRows(d.tasks,[...ids,...cs.map(c=>c.taskId)]),member:get('members',p.ownerId)},1);p.status='Confirmada';p.confirmedAt=at;break;
  }
  case 'capacity':{openWeek(a.weekId);own(a.ownerId);if(!capacities.includes(a.capacity))fail('Señal de capacidad inválida.');const p=ensurePlan(a.weekId,a.ownerId);p.capacity=a.capacity;p.capacityNote=a.note??'';break;}
  case 'ready_plan':{openWeek(a.weekId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(d.commitments.some(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId&&!c.outcome))fail('Completá una propuesta de resultado para cada compromiso.');p.status='Lista para revisar';p.readyAt=at;break;}

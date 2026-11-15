@@ -73,7 +73,7 @@ try{
  await check('Una semana cerrada conserva sus tareas, títulos y bloquea el arrastre',async()=>{
   state=execute(state,'persona01',{id:'close-browser',kind:'close_week',expectedVersion:state.data.weeks.find(w=>w.id===week).version,data:{weekId:week}},now).state;
   state.data.tasks.find(t=>t.id==='normal').title='Título nuevo fuera del cierre';
-  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await lower().count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);
+  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await lower().count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);assert.equal(await upper().getByRole('button',{name:/Detallar avance semanal/}).count(),0);
  });
  await check('El acceso pendiente de Crear proyecto abre su formulario desde Inicio',async()=>{
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Mi panel',exact:true}).click();await page.locator('.workspace-create-actions').getByRole('button',{name:'Crear proyecto',exact:true}).click();
