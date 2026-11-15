@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {institutionalState} from '../shared/team.ts';
+import {execute} from '../shared/domain.ts';
+import {api} from '../server/api.ts';
+import {activeTaskIssues,taskFollowups} from '../shared/task-followup.ts';
+import {pendingInterventions} from '../shared/followup.ts';
+const require=createRequire(import.meta.url),{chromium}=require('playwright');
+const origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4361',workspace='task-followup-browser',emails={persona01:'coord@example.edu',persona02:'second-coord@example.edu',persona05:'member@example.edu',persona06:'other@example.edu'},today='2026-11-15';
+let state=institutionalState(workspace,emails,emails.persona01),identity={id:'verified-member',email:emails.persona05,provider:'google',verified:true},failSave=false;
+function command(actor,kind,data,entity,entityId){const expectedVersion=entityId?state.data[entity??'tasks'].find(row=>row.id===entityId)?.version:undefined;const result=execute(state,actor,{id:crypto.randomUUID(),kind,data,entity,entityId,expectedVersion});state=result.state;return result.result;}
+const taskId=command('persona05','create',{title:'Preparar informe de prueba',ownerId:'persona05'},'tasks').id;
+command('persona05','transition_task',{status:'En curso',note:'Iniciar preparación'},'tasks',taskId);
+const otherId=command('persona06','create',{title:'Tarea privada de otra persona',ownerId:'persona06'},'tasks').id;
+function legacyIssue(actor,id,title){return command(actor,'create',{title,type:'Bloqueo',taskId:id,ownerId:actor,impact:'Demora la entrega',nextAction:'Confirmar con el área',followUpDate:today},'issues').id;}
+const first=legacyIssue('persona05',taskId,'Falta recibir el insumo anterior');legacyIssue('persona05',taskId,'Falta la confirmación anterior');legacyIssue('persona06',otherId,'Problema de otra persona');
+command('persona05','transition_task',{status:'En espera',note:'Esperar la confirmación'},'tasks',taskId);
+command('persona05','request_intervention',{issueId:first,request:'Pedido anterior a Coordinación',neededBy:today});
+command('persona05','create',{targetType:'issues',targetId:first,body:'Comentario histórico de prueba'},'comments');
+const projectId=command('persona05','create',{title:'Proyecto de prueba',outcome:'Resultado esperado de prueba',leadId:'persona05',scope:'du'},'projects').id;
+command('persona05','create',{title:'Problema general del proyecto',type:'Bloqueo',projectId,ownerId:'persona05',impact:'Afecta varias entregas',nextAction:'Revisar el alcance',followUpDate:today},'issues');
+state.snapshots.push({id:'closed-fixture',kind:'week',targetId:'2026-11-09',version:1,at:new Date().toISOString(),actorId:'persona01',reason:'Versión cerrada de prueba',payload:{tasks:structuredClone(state.data.tasks),issues:structuredClone(state.data.issues)}});
+const snapshot=JSON.stringify(state.snapshots);
+const store={load:async()=>structuredClone(state),create:async()=>{},save:async(_key,revision,next)=>{if(failSave||state.revision!==revision)return false;state=structuredClone(next);return true;}};
+const browser=await chromium.launch({headless:true}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],passed=[];
+page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));await mkdir('test-results',{recursive:true});
+await context.route(origin+'/api/**',async route=>{const request=route.request(),path=new URL(request.url()).pathname;
+ if(path.startsWith('/api/gestion/'))return route.fulfill({json:{connected:true,issues:[],steps:[],updates:[],priorities:[]}});
+ if(path.startsWith('/api/calendar/'))return route.fulfill({json:{configured:false,connected:false,events:[],connections:[]}});
+ if(path==='/api/backups/status')return route.fulfill({json:{configured:false,connected:false}});
+ const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,workspace,{mode:'team',identity});await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
+});
+const screen=()=>page.getByRole('region',{name:'Bloqueos y ayuda',exact:true}),detail=()=>page.locator('dialog.detail-sheet'),form=()=>page.locator('dialog.form-dialog'),followup=()=>detail().getByRole('region',{name:'Bloqueos y ayuda de la tarea',exact:true});
+const task=()=>state.data.tasks.find(task=>task.id===taskId);
+async function check(name,fn){await fn();passed.push(name);console.log('PASS '+name);}
+async function showPage(){await page.locator('.sidebar').getByRole('button',{name:'Bloqueos y ayuda',exact:true}).click();await screen().getByRole('heading',{name:'Bloqueos y ayuda',exact:true}).waitFor();}
+async function openTask(){await screen().getByRole('button',{name:'Preparar informe de prueba',exact:true}).click();await detail().getByRole('heading',{name:'Preparar informe de prueba',exact:true}).waitFor();}
+async function save(label='Guardar seguimiento'){await form().getByRole('button',{name:label,exact:true}).click();await form().waitFor({state:'hidden'});}
+async function block(text){await followup().getByRole('button',{name:'Registrar bloqueo',exact:true}).click();await form().getByLabel('¿Qué está pasando?',{exact:true}).fill(text);await form().getByLabel('Volver a revisar el',{exact:true}).fill(today);await save();}
+try{
+ await page.goto(origin+'/#Incidencias');await screen().getByRole('heading',{name:'Bloqueos y ayuda',exact:true}).waitFor();await page.waitForLoadState('networkidle');
+ await check('La página reúne tareas sin repetir incidencias ni pestañas de pedidos y conserva permisos',async()=>{
+  assert.equal(await screen().locator('.followup-task').count(),1);assert.equal(await screen().getByRole('button',{name:'Preparar informe de prueba',exact:true}).count(),1);assert.equal(await screen().getByText('Falta recibir el insumo anterior',{exact:false}).count(),1);
+  assert.equal(await screen().getByText('Tarea privada de otra persona',{exact:true}).count(),0);assert.equal(await screen().getByRole('button',{name:/Pedidos a Coordinación/}).count(),0);assert.equal(await screen().getByRole('button',{name:'Registrar incidencia',exact:true}).count(),0);
+ });
+ await openTask();
+ await check('Destrabar resuelve los problemas anteriores y reanuda la tarea en una sola acción',async()=>{
+  assert.equal(await followup().locator('.task-obstacle').count(),2);await followup().getByRole('button',{name:'Destrabar tarea',exact:true}).click();await form().getByLabel('¿Qué permitió avanzar?',{exact:true}).fill('Llegó el insumo y se confirmó su contenido');await save('Destrabar tarea');
+  assert.equal(task().status,'En curso');assert.equal(activeTaskIssues(state.data.issues,taskId).length,0);assert.equal(pendingInterventions(state.data.interventions,state.data.issues).filter(request=>request.issueId===first).length,0);assert.equal(JSON.stringify(state.snapshots),snapshot);assert.ok(state.data.comments.some(comment=>comment.body==='Comentario histórico de prueba'));
+  await page.reload();await showPage();await screen().getByRole('button',{name:'Resueltas',exact:true}).click();assert.equal(await screen().locator('.followup-task').count(),1);await openTask();await followup().locator('.task-followup-history>summary').click();await followup().getByRole('button',{name:'Ver registro e historial',exact:true}).first().click();await detail().getByRole('heading',{name:'Falta recibir el insumo anterior',exact:true}).waitFor();assert.equal(await detail().getByRole('button',{name:'Cambiar estado de incidencia',exact:true}).count(),0);await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();await openTask();
+ });
+ await check('Registrar y editar el bloqueo utiliza un formulario corto dentro de la tarea',async()=>{
+  await followup().getByRole('button',{name:'Registrar bloqueo',exact:true}).click();for(const label of ['Responsable de seguimiento DU','Estado','Vincular con','Impacto sobre la entrega'])assert.equal(await form().getByLabel(label,{exact:true}).count(),0);
+  await form().getByLabel('¿Qué está pasando?',{exact:true}).fill('Falta la validación del dato');await form().getByLabel('¿De quién depende? (opcional)',{exact:true}).fill('Área de prueba');await form().getByLabel('Volver a revisar el',{exact:true}).fill(today);await save();assert.equal(task().status,'En espera');const count=state.data.issues.length;
+  await followup().getByRole('button',{name:'Editar bloqueo',exact:true}).click();await form().getByLabel('Próxima gestión (opcional)',{exact:true}).fill('Confirmar por correo');await save();assert.equal(state.data.issues.length,count);await followup().getByText('Próxima gestión: Confirmar por correo',{exact:true}).waitFor();
+ });
+ await check('El pedido de ayuda reutiliza el bloqueo de la tarea y aparece sin otro registro de trabajo',async()=>{
+  const count=state.data.issues.length;await followup().getByRole('button',{name:'Pedir ayuda a Coordinación',exact:true}).click();await form().getByLabel('¿Qué decisión o gestión necesitás?',{exact:true}).fill('Necesito acordar la definición con el área');await form().getByLabel('Fecha deseada',{exact:true}).fill(today);await save('Enviar pedido');assert.equal(state.data.issues.length,count);assert.equal(task().status,'En espera');assert.equal(await followup().locator('.task-help-request').count(),1);assert.equal(await followup().getByRole('button',{name:'Pedir ayuda a Coordinación',exact:true}).count(),0);
+  await showPage();await screen().getByRole('button',{name:'Necesitan ayuda',exact:true}).click();assert.equal(await screen().locator('.followup-task').count(),1);await openTask();
+ });
+ await check('Un error conserva el formulario y no modifica tarea, bloqueo ni avisos',async()=>{
+  await followup().getByRole('button',{name:'Editar bloqueo',exact:true}).click();await form().getByLabel('¿Qué está pasando?',{exact:true}).fill('Borrador que debe conservarse');const before=JSON.stringify(state);failSave=true;await form().getByRole('button',{name:'Guardar seguimiento',exact:true}).click();await form().getByRole('alert').waitFor();assert.equal(await form().getByLabel('¿Qué está pasando?',{exact:true}).inputValue(),'Borrador que debe conservarse');assert.equal(JSON.stringify(state),before);failSave=false;await form().getByRole('button',{name:'Cancelar',exact:true}).click();
+ });
+ await check('Coordinación ve al equipo, toma el pedido y responde destrabando en un solo envío',async()=>{
+  identity={id:'verified-coord',email:emails.persona01,provider:'google',verified:true};await page.reload();await showPage();assert.equal(await screen().locator('.followup-task').count(),2);await screen().getByRole('button',{name:'Mis tareas',exact:true}).click();assert.equal(await screen().locator('.followup-task').count(),0);await screen().getByRole('button',{name:'Todo el equipo',exact:true}).click();await openTask();
+  await followup().getByRole('button',{name:'Tomar pedido',exact:true}).click();await form().getByLabel('Próxima acción',{exact:true}).fill('Acordar la definición con el área');await save('Tomar pedido');await followup().getByText('Coordinación lo está gestionando',{exact:true}).waitFor();
+  await followup().getByRole('button',{name:'Registrar respuesta',exact:true}).click();await form().getByLabel('Respuesta de Coordinación',{exact:true}).fill('Se acordó la definición y puede continuar');assert.equal(await form().getByLabel('La tarea ya puede continuar',{exact:true}).isChecked(),true);await save('Guardar respuesta');assert.equal(task().status,'En curso');assert.equal(activeTaskIssues(state.data.issues,taskId).length,0);
+ });
+ identity={id:'verified-member',email:emails.persona05,provider:'google',verified:true};await page.reload();await showPage();await screen().getByRole('button',{name:'Resueltas',exact:true}).click();await openTask();
+ await check('Actualizar el estado de la tarea cierra el bloqueo sin otra gestión independiente',async()=>{
+  await block('Bloqueo que se resolverá desde el estado');await detail().getByRole('button',{name:'Actualizar estado',exact:true}).click();await form().getByLabel('Nuevo estado',{exact:true}).selectOption('En curso');await form().getByLabel('Nota de avance, entrega o motivo',{exact:true}).fill('Se confirmó el dato faltante');await save('Guardar cambios');assert.equal(activeTaskIssues(state.data.issues,taskId).length,0);assert.equal(task().status,'En curso');
+ });
+ await check('Los problemas de proyectos siguen separados y no duplican sus tareas',async()=>{
+  await showPage();await screen().getByRole('button',{name:/^Problemas de proyectos/}).click();await screen().getByRole('button',{name:'Problema general del proyecto',exact:true}).waitFor();await screen().getByRole('button',{name:'Registrar problema de proyecto',exact:true}).click();assert.equal(await form().getByLabel('Tarea vinculada',{exact:true}).count(),0);await form().getByLabel('Proyecto vinculado',{exact:true}).selectOption(projectId);await form().getByLabel('¿Qué está pasando?',{exact:true}).fill('Otro problema general');await form().getByLabel('Tipo de incidencia',{exact:true}).selectOption('Bloqueo');await form().getByLabel('Impacto sobre la entrega',{exact:true}).fill('Afecta al proyecto');await form().getByLabel('Próxima gestión',{exact:true}).fill('Acordar el alcance');const taskCount=state.data.tasks.length;await form().getByRole('button',{name:'Crear incidencia',exact:true}).click();await form().waitFor({state:'hidden'});assert.equal(state.data.tasks.length,taskCount);assert.equal(state.data.issues.at(-1).projectId,projectId);assert.equal(state.data.issues.at(-1).taskId,null);await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();
+ });
+ await showPage();await screen().getByRole('button',{name:'Resueltas',exact:true}).click();await openTask();await block('Esperamos la confirmación final del área');await showPage();
+ await check('La vista única de tareas funciona en escritorio y móvil sin desbordamiento',async()=>{
+  assert.equal(await screen().locator('.followup-task').count(),1);assert.equal(taskFollowups(state,'persona05').filter(row=>!row.closed).length,1);await page.mouse.move(0,0);await page.waitForTimeout(250);await page.screenshot({path:'test-results/task-followup-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'test-results/task-followup-mobile.png',fullPage:true});await openTask();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'test-results/task-followup-detail-mobile.png',fullPage:true});
+ });
+ assert.deepEqual(errors,[]);assert.equal(JSON.stringify(state.snapshots),snapshot);await writeFile('test-results/task-followup-browser.json',JSON.stringify({passed,errors},null,2));console.log('PASS '+passed.length+' recorridos de Bloqueos y ayuda');
+}catch(error){await page.screenshot({path:'test-results/task-followup-failure.png',fullPage:true});console.log(await page.locator('main').innerText());throw error;}finally{await browser.close();}

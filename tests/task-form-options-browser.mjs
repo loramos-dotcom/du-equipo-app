@@ -57,10 +57,10 @@ try{
   await detail().getByRole('button',{name:'Trabajo vinculado',exact:true}).first().click();assert.equal(await detail().getByRole('heading',{name:/Subtareas/}).count(),0);await closeDetail();
   await page.getByText('Más filtros',{exact:true}).click();assert.equal(await page.getByRole('option',{name:'Subtareas',exact:true}).count(),0);await page.getByText('Más filtros',{exact:true}).click();await page.locator('.task-name').filter({hasText:row.title}).click();
  });
- await check('Incidencia creada desde una tarea conserva el contexto sin repetir desplegables',async()=>{
-  const taskId=state.data.tasks.at(-1).id;await detail().getByRole('button',{name:'Registrar incidencia',exact:true}).click();await form().locator('.form-context').getByText('Tarea con descripción ampliada',{exact:true}).waitFor();
-  assert.equal(await form().getByLabel('Vincular con',{exact:true}).count(),0);assert.equal(await form().getByLabel('Tarea vinculada',{exact:true}).count(),0);
-  await form().getByLabel('¿Qué está pasando?',{exact:true}).fill('Falta confirmar los datos');await form().getByLabel('¿De quién depende?',{exact:true}).fill('Universidad');await form().getByLabel('Impacto sobre la entrega',{exact:true}).fill('Demora el informe');await form().getByLabel('Próxima gestión',{exact:true}).fill('Consultar al área');await form().getByRole('button',{name:'Crear incidencia',exact:true}).click();await form().waitFor({state:'hidden'});assert.equal(state.data.issues.at(-1).taskId,taskId);assert.equal(state.data.issues.at(-1).projectId,null);
+ await check('El bloqueo se registra dentro de la tarea sin repetir responsable, vínculo ni estado',async()=>{
+  const taskId=state.data.tasks.at(-1).id;await detail().getByRole('button',{name:'Registrar bloqueo',exact:true}).click();await form().getByText('Tarea: Tarea con descripción ampliada',{exact:true}).waitFor();
+  for(const label of ['Vincular con','Tarea vinculada','Responsable de seguimiento DU','Impacto sobre la entrega'])assert.equal(await form().getByLabel(label,{exact:true}).count(),0);
+  await form().getByLabel('¿Qué está pasando?',{exact:true}).fill('Falta confirmar los datos');await form().getByLabel('¿De quién depende? (opcional)',{exact:true}).fill('Universidad');await form().getByLabel('Próxima gestión (opcional)',{exact:true}).fill('Consultar al área');await form().getByRole('button',{name:'Guardar seguimiento',exact:true}).click();await form().waitFor({state:'hidden'});assert.equal(state.data.issues.at(-1).taskId,taskId);assert.equal(state.data.issues.at(-1).projectId,null);assert.equal(state.data.tasks.find(task=>task.id===taskId).status,'En espera');
  });
  await check('La banderita mueve la tarea entre los grupos y conserva el cambio al recargar',async()=>{
   await closeDetail();const title='Tarea con solo área',others=()=>page.getByRole('region',{name:'Otros pendientes',exact:true}),priorities=()=>page.getByRole('region',{name:'Pendientes prioritarios',exact:true});

@@ -1,5 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {PGlite} from '@electric-sql/pglite';import {readFile} from 'node:fs/promises';
 import {seed} from '../shared/seed.ts';import {execute} from '../shared/domain.ts';import {stateDelta} from '../server/relational.ts';
+import {taskFollowupKey,activeTaskIssues} from '../shared/task-followup.ts';
 export async function relationalFixture(){
  const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create role supabase_auth_admin;grant usage on schema public to anon,authenticated,service_role,supabase_auth_admin;');
  await db.exec(await readFile(new URL('../supabase/schemas/du_equipo.sql',import.meta.url),'utf8'));
@@ -8,6 +9,19 @@ export async function relationalFixture(){
  await db.exec('begin;'+await readFile(new URL('../deploy/du-relational-migration.sql',import.meta.url),'utf8')+'commit;');return {db,state};
 }
 export async function commit(db:PGlite,delta:ReturnType<typeof stateDelta>){const values=Object.values(delta),placeholders=values.map((_,i)=>'$'+(i+1));return (await db.query<{ok:boolean}>('select public.du_commit_state('+placeholders.join(',')+') ok',values)).rows[0].ok;}
+
+test('Bloqueos y ayuda guarda y destraba tarea, seguimiento y pedido en la estructura existente sin migraciones nuevas',async()=>{
+ const {db,state}=await relationalFixture();try{
+  const task=state.data.tasks.find(task=>task.id==='t1')!;
+  const next=execute(state,'persona05',{id:'followup-persist',kind:'task_followup',entityId:task.id,expectedVersion:task.version,data:{action:'save',description:'Falta un dato de prueba',followUpDate:'2026-10-22',pause:true,requestCoordination:true,request:'Acordar la definición del dato',neededBy:'2026-10-22',followupKey:taskFollowupKey(state,task.id,'persona05')}},new Date('2026-10-21T15:00:00Z')).state;
+  assert.equal(await commit(db,stateDelta(state,next)),true);
+  const stored=(await db.query<{v:any}>('select public.du_read_state($1) v',[state.workspaceId])).rows[0].v;
+  assert.equal(stored.data.tasks.find((row:any)=>row.id===task.id).status,'En espera');assert.equal(activeTaskIssues(stored.data.issues,task.id).length,1);assert.ok(stored.data.interventions.some((request:any)=>request.request==='Acordar la definición del dato'));
+  const resumed=execute(stored,'persona05',{id:'followup-resume',kind:'task_followup',entityId:task.id,expectedVersion:stored.data.tasks.find((row:any)=>row.id===task.id).version,data:{action:'clear',note:'El dato fue confirmado',followupKey:taskFollowupKey(stored,task.id,'persona05')}},new Date('2026-10-21T16:00:00Z')).state;
+  assert.equal(await commit(db,stateDelta(stored,resumed)),true);assert.equal(await commit(db,stateDelta(stored,resumed)),false);
+  const final=(await db.query<{v:any}>('select public.du_read_state($1) v',[state.workspaceId])).rows[0].v;assert.equal(final.data.tasks.find((row:any)=>row.id===task.id).status,'En curso');assert.equal(activeTaskIssues(final.data.issues,task.id).length,0);assert.equal(final.audit.filter((event:any)=>event.operationId==='followup-resume').length,2);
+ }finally{await db.close();}
+});
 test('Migración relacional conserva cada registro, vínculos y allowlist; navegador sin acceso directo',async()=>{
  const {db,state}=await relationalFixture();try{
   const result=(await db.query<{state:any}>('select public.du_read_state($1) state',[state.workspaceId])).rows[0].state;

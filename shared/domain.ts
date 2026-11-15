@@ -1,5 +1,6 @@
 import {taskCollaborators,taskAreaIds} from './task-assignment.ts';
 import {weeklyTasks} from './weekly-tasks.ts';
+import {activeTaskIssues,visibleTaskIssues,taskFollowupKey} from './task-followup.ts';
 import {resolveProjectAssignments}from'./project-assignments.ts';
 import {canEditCalendarMinutes}from'./calendar.ts';
 import type {TeamEvent}from'./calendar.ts';
@@ -79,6 +80,8 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   if(priority&&d.commitments.filter(c=>c.weekId===weekId&&c.ownerId===task.ownerId&&c.isPriority).length>=s.settings.priorityLimit)reason();
   invalidateReady(weekId,task.ownerId);return newRow('commitments',{taskId,weekId,ownerId:task.ownerId,originalOwnerId:task.ownerId,result,targetDate:targetDate||null,isPriority:priority,category:plan.confirmedAt?'Incorporada durante la semana':'Prevista',progress:'',outcome:null,outcomeNote:'',transferPending:false});
  };
+ const checkFollowupVersion=(t:Row,mandatory=false)=>{if((mandatory||a.followupKey!==undefined)&&a.followupKey!==taskFollowupKey(s,t.id,actorId))fail('Cambió el seguimiento de esta tarea. Recargá para revisar el bloqueo o pedido actualizado.',409);};
+ const closeTaskFollowup=(t:Row,note:string,cancelled=false)=>{for(const issue of activeTaskIssues(d.issues,t.id)){issue.status=cancelled?'Descartada':'Resuelta';issue.resolutionNote=note;issue.resolvedWithTask=true;}t.followupRevision=(t.followupRevision??0)+1;};
  const transition=(t:Row,status:string,note:string,evidence?:string)=>{
   if(!taskStatuses.includes(status))fail('Estado de tarea inválido.');if(!taskEditor(t)&&!(t.status==='Para validar'&&actorId===t.validatorId))fail('No podés actualizar esta tarea.',403);
   if(t.archived)fail('Restaurá la tarea archivada antes de modificarla.');
@@ -96,18 +99,42 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   if(t.status==='Para validar'&&status!=='Cancelada'){if(actorId!==t.validatorId&&!coord)fail('Solo el validador designado puede aprobar o devolver.',403);if(coord&&actorId!==t.validatorId)reason();if(!['Terminada','En curso'].includes(status))fail('Aprobá la entrega o devolvela a En curso.');required(note,'Observación de validación');}
   else if(status==='Terminada'&&t.requiresValidation)fail('Esta tarea requiere pasar por Para validar.');
   if(status==='Para validar'){if(!t.requiresValidation)fail('Esta tarea no requiere validación.');activeMember(t.validatorId);required(note,'Nota de entrega');}
-  if(status==='Terminada'){required(note||evidence,'Resolución o evidencia');if(t.requiresEvidence&&!hasEvidence)fail('Esta entrega requiere un enlace de evidencia.');if(d.issues.some(i=>i.taskId===t.id&&!['Resuelta','Descartada'].includes(i.status)))fail('Resolvé las incidencias de la tarea antes de terminarla.');t.completedAt=at;if(t.status==='Para validar'){t.validatedBy=actorId;t.validatedAt=at;}}
+  if(status==='Terminada'){required(note||evidence,'Resolución o evidencia');if(t.requiresEvidence&&!hasEvidence)fail('Esta entrega requiere un enlace de evidencia.');t.completedAt=at;if(t.status==='Para validar'){t.validatedBy=actorId;t.validatedAt=at;}}
   if(status==='Cancelada'||terminals.includes(t.status)||status==='Pendiente'&&t.status==='En curso')required(note||a.reason,'Motivo del cambio');
   if(status==='Cancelada'&&d.commitments.some(c=>c.taskId===t.id&&!c.outcome&&get('weeks',c.weekId).status!=='Cerrada'))fail('Resolvé los compromisos activos antes de cancelar la tarea.');
-  if(status==='En espera'){if(!d.issues.some(i=>i.taskId===t.id&&['Espera','Bloqueo'].includes(i.type)&&!['Resuelta','Descartada'].includes(i.status)))fail('Registrá primero una espera o un bloqueo abierto.');if(t.status!=='En espera')t.previousStatus=t.status;}
+  checkFollowupVersion(t);
+  if(status==='En espera'){if(!activeTaskIssues(d.issues,t.id).length){required(note,'Qué impide avanzar');newRow('issues',{taskId:t.id,projectId:null,ownerId:t.ownerId,title:note,type:'Bloqueo',initialType:'Bloqueo',status:'Abierta',impact:'',nextAction:'',dependency:a.dependency??'',followUpDate:a.followUpDate??today,detectedAt:today,taskIntegrated:true});}if(t.status!=='En espera')t.previousStatus=t.status;}
   if(status==='Para validar'&&t.requiresEvidence&&!hasEvidence)fail('La tarea requiere evidencia antes de enviarla a validar.');
   if(terminals.includes(t.status)){t.completedAt=null;t.cancelledAt=null;t.validatedBy=null;t.validatedAt=null;}if(status==='Cancelada')t.cancelledAt=at;
+  if(['Terminada','Cancelada','Para validar'].includes(status)||status==='En curso'&&t.status==='En espera')closeTaskFollowup(t,note||a.reason||'Seguimiento actualizado desde la tarea.',status==='Cancelada');
   t.status=status;t.resolutionNote=note||t.resolutionNote;if(evidence)t.links=[...(t.links??[]),{title:'Evidencia',url:evidence}];
   if(status==='Para validar')notify(t.validatorId,'Validación','tasks',t.id,`Hay una entrega para validar: ${t.title}`);
   if(status==='En curso'&&input.data.tasks.find(x=>x.id===t.id)?.status==='Para validar')notify(t.ownerId,'Devolución','tasks',t.id,`Se devolvió la entrega: ${t.title}`);
  };
  let result:any={ok:true};
  switch(command.kind){
+ case 'task_followup':{
+  const t=get('tasks',command.entityId!);version(t);if(!coord&&t.ownerId!==actorId)fail('Solo el responsable o Coordinación puede actualizar el bloqueo de esta tarea.',403);if(terminals.includes(t.status)||t.status==='Para validar')fail('La tarea debe estar pendiente, en curso o en espera.');checkFollowupVersion(t,true);
+  if(a.action==='take'){
+   checkCoord();const request=get('interventions',a.requestId);if(request.status!=='Solicitada'||!activeTaskIssues(d.issues,t.id).some(issue=>issue.id===request.issueId))fail('El pedido ya no está disponible en esta tarea.',409);request.nextAction=required(a.nextAction,'Próxima acción');request.status='Tomada';request.takenBy=actorId;request.takenAt=at;t.followupRevision=(t.followupRevision??0)+1;notify(t.ownerId,'Ayuda en gestión','tasks',t.id,request.nextAction);result={id:t.id};break;
+  }
+  if(a.action==='answer'){
+   checkCoord();const request=get('interventions',a.requestId);if(request.status==='Resuelta'||!activeTaskIssues(d.issues,t.id).some(issue=>issue.id===request.issueId))fail('El pedido ya no está pendiente en esta tarea.',409);const note=required(a.note,'Respuesta de Coordinación');if(typeof a.unblock!=='boolean')fail('Indicá si la tarea puede continuar.');
+   request.status='Resuelta';request.resolutionNote=note;notify(t.ownerId,'Respuesta de Coordinación','tasks',t.id,note);
+   if(a.unblock){delete a.followupKey;if(t.status==='En espera')transition(t,workBlockers(d.tasks,t).length?'Pendiente':'En curso',note);else closeTaskFollowup(t,note);}t.followupRevision=(t.followupRevision??0)+1;result={id:t.id};break;
+  }
+  if(a.action==='clear'){
+   const note=required(a.note,'Qué permitió avanzar');if(t.status==='En espera'){const previous=['Pendiente','En curso'].includes(t.previousStatus)?t.previousStatus:'En curso',next=previous==='En curso'&&workBlockers(d.tasks,t).length?'Pendiente':previous;transition(t,next,note);}else closeTaskFollowup(t,note);result={id:t.id};break;
+  }
+  if(a.action!=='save')fail('Acción de seguimiento inválida.');
+  if(typeof a.pause!=='boolean'||typeof a.requestCoordination!=='boolean')fail('Indicá si la tarea espera o necesita ayuda.');
+  const title=required(a.description,'Qué está pasando');validDate(a.followUpDate,'Fecha de seguimiento',true);
+  let issue:Row|undefined;if(a.issueId){issue=get('issues',a.issueId);if(issue.taskId!==t.id||['Resuelta','Descartada'].includes(issue.status))fail('El seguimiento ya no está activo en esta tarea.',409);}else issue=visibleTaskIssues(s,t.id,actorId).find(issue=>issue.taskIntegrated);
+  const values={title,dependency:typeof a.dependency==='string'?a.dependency.trim():'',nextAction:typeof a.nextAction==='string'?a.nextAction.trim():'',followUpDate:a.followUpDate,taskIntegrated:true};
+  if(issue)Object.assign(issue,values);else issue=newRow('issues',{...values,taskId:t.id,projectId:null,ownerId:t.ownerId,type:a.pause?'Bloqueo':'Espera',initialType:a.pause?'Bloqueo':'Espera',status:'Abierta',impact:'',detectedAt:today});
+  if(a.requestCoordination){if(d.interventions.some(request=>request.status!=='Resuelta'&&activeTaskIssues(d.issues,t.id).some(row=>row.id===request.issueId)))fail('Esta tarea ya tiene un pedido pendiente a Coordinación.');requestForIssue(issue,a.request,a.neededBy);}
+  if(a.pause&&t.status!=='En espera'){delete a.followupKey;transition(t,'En espera',title);}t.followupRevision=(t.followupRevision??0)+1;result={id:t.id};break;
+ }
  case 'record_pilot_cycle':{
   checkCoord();const w=get('weeks',a.weekId),meeting=get('meetings',a.meetingId);if(w.status!=='Cerrada'||meeting.status!=='Cerrada'||meeting.weekId!==w.id||addDays(w.id,6)>today)fail('El ciclo debe corresponder a una semana completa cerrada, con su minuta cerrada.');
   if(a.confirmedObserved!==true)fail('Confirmá que el equipo realizó y observó este ciclo.');if(!Array.isArray(a.participants)||!a.participants.length)fail('Indicá quiénes participaron del ensayo.');for(const id of a.participants)get('members',id);
