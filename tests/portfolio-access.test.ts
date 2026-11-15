@@ -1,8 +1,31 @@
-import {projectFilterAreaKeys} from '../src/gestion/du-portfolio.ts';
+import {projectFilterAreaKeys,isMyPortfolioProject,priorityFirstProjects} from '../src/gestion/du-portfolio.ts';
+import type {DuPortfolio} from '../src/gestion/du-portfolio.ts';
+import type {Project} from '../src/gestion/domain/types.ts';
+import {projectCatalog,flattenProjects} from '../src/gestion/domain/projectTree.ts';
 import {readQuery} from '../server/read-queries.ts';
 import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';import{PGlite}from'@electric-sql/pglite';
 import{seed}from'../shared/seed.ts';import{execute,publicState}from'../shared/domain.ts';import{api}from'../server/api.ts';import{resolveProjectAssignments}from'../shared/project-assignments.ts';import{followedAreaKeys}from'../shared/project-portfolios.ts';import type{State}from'../shared/model.ts';
 const now=new Date('2026-10-21T15:00:00Z');
+
+test('Mis proyectos se limita a asignaciones y carteras, incluso para Coordinación; se combina con el área',()=>{
+ const p=(id:string,areaKey:string,areaKeys=[areaKey])=>({id,areaKey,areaKeys,children:[],favorite:false} as unknown as Project);
+ const mine={coordinator:true,directProjectIds:[],followedAreaKeys:[],assignments:{}} as unknown as DuPortfolio;
+ const projects=[p('own','universidad'),p('followed','tecnologia'),p('other','planeamiento')];
+ assert.deepEqual(projects.filter(project=>isMyPortfolioProject(project,mine)),[]);
+ mine.directProjectIds=['own'];mine.followedAreaKeys=['tecnologia'];
+ assert.deepEqual(projects.filter(project=>isMyPortfolioProject(project,mine)).map(p=>p.id),['own','followed']);
+ assert.deepEqual(projects.filter(project=>isMyPortfolioProject(project,mine)&&projectFilterAreaKeys(project).includes('planeamiento')),[]);
+ mine.assignments.other={memberIds:[],members:[],areaKeys:['tecnologia'],version:1};
+ assert.equal(isMyPortfolioProject(projects[2],mine),true);
+ assert.equal(isMyPortfolioProject(projects[0],undefined),false);
+});
+
+test('La lista prioriza familias con banderita sin duplicar proyectos ni cambiar la jerarquía original',()=>{
+ const project=(id:string,favorite=false,children:Project[]=[]):Project=>({id,name:id,children,favorite} as Project);
+ const rows=[project('normal'),project('parent',false,[project('child',true)]),project('priority',true),project('last')],before=structuredClone(rows);
+ assert.deepEqual(priorityFirstProjects(rows).map(p=>p.id),['parent','priority','normal','last']);assert.deepEqual(rows,before);
+ const found=projectCatalog(rows,new Set(['child']));assert.deepEqual(found.groups.map(p=>p.id),['parent']);assert.deepEqual(flattenProjects(found.groups).map(p=>p.id),['parent','child']);assert.deepEqual([...found.ancestors],['parent']);
+});
 test('El estado y ambos historiales ocultan identidad técnica y correo también en copias anidadas',async()=>{
  const state=seed(now),privateIdentity={email:'identity-fixture@example.edu',actorEmail:'audit-fixture@example.edu',authUserId:'private-auth-fixture',activatedAt:'private-activation-fixture'},task=state.data.tasks[0];
  state.audit.push({id:'privacy-audit',at:now.toISOString(),actorId:'persona01',actorName:'Integrante de prueba',actorEmail:privateIdentity.actorEmail,entity:'tasks',entityId:task.id,action:'modificar',before:{...task,member:privateIdentity},after:{...task,member:privateIdentity},fields:['member'],reason:'Ensayo',operationId:'privacy-operation',source:'interfaz'});
