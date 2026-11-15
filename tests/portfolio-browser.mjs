@@ -78,7 +78,7 @@ try{
   assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto priorizado',exact:true}).count(),0);
   assert.equal(await manager().getByRole('region',{name:'Lista de proyectos',exact:true}).count(),1);
   assert.equal(await manager().getByRole('region',{name:'Resto de proyectos',exact:true}).count(),0);
-  assert.equal(await manager().locator('.du-area-card').count(),0);
+  assert.equal(await manager().locator('.du-area-card').count(),0);assert.equal(await manager().getByRole('button',{name:'Vistas guardadas',exact:true}).count(),0);
   assert.equal(await areaButtons().getByRole('button').count(),11);
   assert.equal(await manager().getByRole('combobox').count(),0);assert.equal(await manager().getByRole('button',{name:'Exportar',exact:true}).isVisible().catch(()=>false),false);
   assert.deepEqual(await manager().getByRole('columnheader').allTextContents(),['Proyecto','Área','Referente DU','Estado']);
@@ -139,5 +139,16 @@ try{
   await page.screenshot({path:'test-results/proyectos-navegacion-escritorio.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await areaButtons().getByRole('button',{name:'Transversales',exact:true}).scrollIntoViewIfNeeded();await areaButtons().getByRole('button',{name:'Transversales',exact:true}).click();await manager().getByRole('button',{name:'Abrir Proyecto transversal de prueba',exact:true}).waitFor();await page.screenshot({path:'test-results/proyectos-navegacion-movil.png',fullPage:true});
  });
+ await page.setViewportSize({width:1440,height:1000});await reset();
+ await check('Las asignaciones compartidas siguen reflejadas en el filtro por persona',async()=>{
+  await scope().getByRole('button',{name:'Todos los proyectos',exact:true}).click();await filters();const filter=manager().getByRole('combobox',{name:'Filtrar por referente',exact:true});await filter.selectOption('persona06');assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true}).count(),1);assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto priorizado',exact:true}).count(),1);await filter.selectOption('persona03');assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true}).count(),1);assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto priorizado',exact:true}).count(),0);await reset();
+ });
+ await page.locator('.sidebar').getByRole('button',{name:'Mi panel',exact:true}).click();assert.equal(await page.locator('.shared-management-summary').count(),0);
+ await check('Mi panel abre Proyectos y conserva la prioridad independiente de DU',async()=>{
+  await page.getByRole('button',{name:/Proyectos de la DU/}).click();await manager().getByRole('heading',{name:'Proyectos',exact:true}).waitFor();await filters();await manager().getByRole('button',{name:'Prioridad DU',exact:true}).click();assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true}).count(),1);assert.equal(await manager().getByRole('button',{name:'Abrir Proyecto priorizado',exact:true}).count(),0);
+ });
+ await page.locator('.sidebar').getByRole('button',{name:/^Incidencias/}).click();
+ await check('El integrante sigue viendo solo sus incidencias al elegir Todas',async()=>{await page.getByRole('button',{name:'Incidencia propia de Persona 05',exact:true}).waitFor();await page.getByRole('button',{name:'Todas',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Incidencia de otra persona',exact:true}).count(),0);assert.equal(await page.getByRole('button',{name:'Incidencia propia de Persona 05',exact:true}).count(),1);});
+ await check('Coordinación conserva todas las incidencias del equipo',async()=>{identity={id:'du-persona01',email:'persona01@bue.edu.ar',provider:'google',verified:true};await page.reload();await page.getByRole('button',{name:'Incidencia propia de Persona 05',exact:true}).waitFor();await page.getByRole('button',{name:'Incidencia de otra persona',exact:true}).waitFor();});
  assert.deepEqual(errors,[]);await writeFile('test-results/portfolio-browser.json',JSON.stringify({passed,errors},null,2));console.log('PASS '+passed.length+' recorridos de Proyectos');
 }catch(error){await page.screenshot({path:'test-results/portfolio-failure.png',fullPage:true});console.log(await page.locator('main').innerText());throw error;}finally{await browser.close();}
