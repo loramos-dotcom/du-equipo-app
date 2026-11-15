@@ -1,4 +1,5 @@
 import {taskCollaborators,taskAreaIds} from './task-assignment.ts';
+import {weeklyTasks} from './weekly-tasks.ts';
 import {resolveProjectAssignments}from'./project-assignments.ts';
 import {canEditCalendarMinutes}from'./calendar.ts';
 import type {TeamEvent}from'./calendar.ts';
@@ -333,6 +334,17 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
 
  case 'link_project_area':{checkCoord();reason();const p=get('projects',a.projectId);get('areas',a.areaId);const target=p.external?(d.projectLinks.find(l=>l.sourceId===p.sourceId)??newRow('projectLinks',{sourceId:p.sourceId,leadId:null,members:p.members??[],areaIds:[],areaPriorities:{},intervention:'acompaña'})):p;target.areaIds=[...new Set([...(target.areaIds??[]),a.areaId])];break;}
  case 'milestone_status':{const m=get('milestones',command.entityId!);version(m);if(!lead(get('projects',m.projectId)))fail('Solo el referente puede modificar el hito.',403);if(a.status==='Logrado')required(a.note||a.evidence,'Criterio cumplido y evidencia o justificación');if(a.status==='Cancelado'){reason();if(d.tasks.some(t=>t.milestoneId===m.id&&!terminals.includes(t.status)))fail('Desvinculá o resolvé las tareas del hito antes de cancelarlo.');}if(!['Pendiente','En curso','Logrado','Cancelado'].includes(a.status))fail('Estado de hito inválido.');Object.assign(m,{status:a.status,note:a.note??'',evidence:a.evidence??'',completedAt:a.status==='Logrado'?at:null});break;}
+ case 'select_week_task':{
+  const task=get('tasks',a.taskId);version(task);activeMember(task.ownerId);own(task.ownerId);openWeek(a.weekId);
+  if(typeof a.selected!=='boolean')fail('Indicá si la tarea forma parte de la semana.',400);
+  if(task.archived||terminals.includes(task.status))fail('Solo se pueden mover tareas abiertas.');
+  const current=d.plans.find(p=>p.weekId===a.weekId&&p.ownerId===task.ownerId);
+  if(a.planVersion!==(current?.version??null))fail('El plan cambió. Actualizá la semana antes de mover la tarea.',409);
+  if(!a.selected&&d.commitments.some(c=>c.taskId===task.id&&c.weekId===a.weekId))fail('Esta tarea tiene un avance acordado. Reprogramá su compromiso para moverlo a otra semana.');
+  const plan=invalidateReady(a.weekId,task.ownerId);
+  plan.taskSelections={...plan.taskSelections,[task.id]:a.selected};
+  result={id:task.id,weekId:a.weekId,selected:a.selected};break;
+ }
  case 'upsert_commitment':{const r=addCommitment(a.taskId,a.weekId,a.result,!!a.isPriority,a.targetDate);result={id:r.id};break;}
  case 'update_commitment':{
   const c=get('commitments',command.entityId!);version(c);closed(c);own(c.ownerId);const plan=ensurePlan(c.weekId,c.ownerId);if(plan.confirmedAt&&['result','isPriority'].some(k=>k in a&&a[k]!==c[k]))reason();
@@ -341,7 +353,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  }
  case 'acknowledge_transfer':{const c=get('commitments',command.entityId!);version(c);closed(c);if(actorId!==c.ownerId)fail('El nuevo responsable debe reconocer el compromiso.',403);c.transferPending=false;c.acknowledgedAt=at;break;}
  case 'confirm_plan':{
-  openWeek(a.weekId);activeMember(a.ownerId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(p.confirmedAt)fail('El plan ya fue confirmado.');const cs=d.commitments.filter(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId);if(cs.some(c=>c.transferPending))fail('Reconocé los compromisos transferidos antes de confirmar.');snapshot('plan',p.id,{plan:p,commitments:cs,tasks:workSnapshotRows(d.tasks,cs.map(c=>c.taskId)),member:get('members',p.ownerId)},1);p.status='Confirmada';p.confirmedAt=at;break;
+  openWeek(a.weekId);activeMember(a.ownerId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(p.confirmedAt)fail('El plan ya fue confirmado.');const cs=d.commitments.filter(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId);if(cs.some(c=>c.transferPending))fail('Reconocé los compromisos transferidos antes de confirmar.');const ids=weeklyTasks(s,a.weekId,a.ownerId,today).selected.map(row=>row.task.id);snapshot('plan',p.id,{plan:p,commitments:cs,weekTaskIds:{[a.ownerId]:ids},tasks:workSnapshotRows(d.tasks,[...ids,...cs.map(c=>c.taskId)]),member:get('members',p.ownerId)},1);p.status='Confirmada';p.confirmedAt=at;break;
  }
  case 'capacity':{openWeek(a.weekId);own(a.ownerId);if(!capacities.includes(a.capacity))fail('Señal de capacidad inválida.');const p=ensurePlan(a.weekId,a.ownerId);p.capacity=a.capacity;p.capacityNote=a.note??'';break;}
  case 'ready_plan':{openWeek(a.weekId);own(a.ownerId);const p=ensurePlan(a.weekId,a.ownerId);if(d.commitments.some(c=>c.weekId===a.weekId&&c.ownerId===a.ownerId&&!c.outcome))fail('Completá una propuesta de resultado para cada compromiso.');p.status='Lista para revisar';p.readyAt=at;break;}
@@ -350,7 +362,8 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  }
  case 'close_week':{
   checkCoord();const w=ensureWeek(a.weekId);if(w.status==='Cerrada'){result={version:w.closeVersion};break;}version(w);const cs=d.commitments.filter(c=>c.weekId===w.id);if(cs.some(c=>!c.outcome)){if(!a.allowMissing)fail('Hay compromisos sin resultado. Revisalos o cerralos como Sin actualización con motivo.');reason();cs.filter(c=>!c.outcome).forEach(c=>{c.outcome='Sin actualización';c.outcomeNote=a.reason;});}
-  w.closeVersion++;w.status='Cerrada';w.closedAt=at;const payload={week:w,commitments:cs,plans:d.plans.filter(p=>p.weekId===w.id),tasks:workSnapshotRows(d.tasks,cs.map(c=>c.taskId)),members:d.members,areas:d.areas,projects:d.projects};snapshot('week',w.id,payload,w.closeVersion);result={version:w.closeVersion};break;
+  const weekTaskIds=Object.fromEntries(d.members.map(member=>[member.id,weeklyTasks(s,w.id,member.id,today).selected.map(row=>row.task.id)]));
+  w.closeVersion++;w.status='Cerrada';w.closedAt=at;const payload={week:w,commitments:cs,weekTaskIds,plans:d.plans.filter(p=>p.weekId===w.id),tasks:workSnapshotRows(d.tasks,[...cs.map(c=>c.taskId),...Object.values(weekTaskIds).flat()]),members:d.members,areas:d.areas,projects:d.projects};snapshot('week',w.id,payload,w.closeVersion);result={version:w.closeVersion};break;
  }
  case 'reopen_week':{checkCoord();const w=get('weeks',a.weekId);version(w);reason();if(w.status!=='Cerrada')fail('La semana ya está abierta.');w.status='Abierta';w.reopenReason=a.reason;break;}
  case 'issue_status':{const i=get('issues',command.entityId!);version(i);if(!coord&&i.ownerId!==actorId)fail('Solo el responsable puede actualizar la incidencia.',403);if(['Resuelta','Descartada'].includes(a.status))required(a.note,'Resolución o motivo');if(['Resuelta','Descartada'].includes(i.status))reason();if(!['Abierta','En tratamiento','Resuelta','Descartada'].includes(a.status))fail('Estado inválido.');i.status=a.status;i.resolutionNote=a.note??'';break;}

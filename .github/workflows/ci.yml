@@ -32,5 +32,16 @@ jobs:
           done
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/work-links-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/task-form-options-browser.mjs
+          DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/weekly-tasks-browser.mjs
+      - name: Capturas de Mi semana con datos ficticios
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: weekly-tasks-review
+          path: |
+            test-results/weekly-*.png
+            test-results/weekly-tasks.json
+          if-no-files-found: ignore
+          retention-days: 3
       - run: npm run test:worker
       - run: npm run validate

@@ -1,0 +1,28 @@
+.weekly-task-board{display:grid;gap:28px;min-width:0}
+.weekly-task-section{padding:18px;border:1px solid var(--line);border-radius:10px;background:#fff;min-width:0;transition:border-color .15s,background .15s}
+.weekly-selected{border-top:4px solid var(--yellow)}
+.weekly-task-section.is-drop-target{border-color:var(--teal);background:var(--soft);box-shadow:0 0 0 2px var(--teal)}
+.weekly-task-section>.section-heading{margin-bottom:12px}
+.weekly-task-section h2{font-size:18px}
+.weekly-task-list{display:grid}
+.weekly-task-row{display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid var(--line);min-width:0;background:inherit}
+.weekly-task-row:first-child{border-top:0}
+.weekly-task-row.is-dragging{opacity:.4}
+.weekly-task-row.is-saving{opacity:.6}
+.weekly-task-grip{display:flex;color:var(--muted);cursor:grab}
+.weekly-task-row[draggable=true]{cursor:grab}
+.weekly-task-main{flex:1;min-width:0}
+.weekly-task-title{display:block;text-align:left;font-weight:650;font-size:14px;line-height:1.5;padding:0;overflow-wrap:anywhere}
+.weekly-task-title:hover{text-decoration:underline}
+.weekly-task-meta{display:flex;gap:5px 12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:10px;margin-top:5px}
+.weekly-task-priority{display:inline-flex;gap:4px;align-items:center;color:var(--teal)}
+.weekly-task-result{flex-basis:100%;font-size:11px;line-height:1.4}
+.weekly-task-controls{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.weekly-task-controls>.badge{font-size:10px;white-space:nowrap}
+.weekly-task-empty{color:var(--muted);font-size:12px;padding:20px 0;line-height:1.5}
+.weekly-task-move{color:var(--teal)}
+.week-results{margin-top:24px;border:1px solid var(--line);border-radius:8px;padding:16px}
+.week-results>summary{cursor:pointer;font-weight:650;font-size:13px}
+.week-results .weekly-promise-card{margin-top:16px}
+.week-rail:empty{display:none}
+@media(max-width:760px){.weekly-task-section{padding:14px}.weekly-task-row{flex-wrap:wrap;gap:8px}.weekly-task-title{font-size:13px}.weekly-task-controls{margin-left:auto;flex-wrap:wrap}.weekly-task-controls>.badge{font-size:9px}.weekly-task-controls>.icon{min-width:36px;min-height:36px}.weekly-task-main{flex-basis:calc(100% - 28px)}.weekly-task-section h2{font-size:16px}}
