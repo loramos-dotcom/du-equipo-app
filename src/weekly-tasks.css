@@ -26,3 +26,5 @@
 .week-results .weekly-promise-card{margin-top:16px}
 .week-rail:empty{display:none}
 @media(max-width:760px){.weekly-task-section{padding:14px}.weekly-task-row{flex-wrap:wrap;gap:8px}.weekly-task-title{font-size:13px}.weekly-task-controls{margin-left:auto;flex-wrap:wrap}.weekly-task-controls>.badge{font-size:9px}.weekly-task-controls>.icon{min-width:36px;min-height:36px}.weekly-task-main{flex-basis:calc(100% - 28px)}.weekly-task-section h2{font-size:16px}}
+
+.week-layout.week-layout-wide{grid-template-columns:minmax(0,1fr)}
