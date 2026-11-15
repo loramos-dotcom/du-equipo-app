@@ -61,6 +61,13 @@ test('Tomar un pedido desde la tarea exige Coordinación, verifica el contexto y
  assert.throws(()=>call(state,taskId,'task_followup',{...data,followupKey:taskFollowupKey(state,taskId,'persona05')}),/coordinación/i);const next=call(state,taskId,'task_followup',data,'persona01');assert.equal(next.data.interventions[0].status,'Tomada');assert.equal(next.data.interventions[0].takenBy,'persona01');assert.equal(next.data.tasks[0].status,'En espera');assert.ok(next.data.tasks[0].version>state.data.tasks[0].version);assert.ok(next.data.notifications.some(notice=>notice.type==='Ayuda en gestión'&&notice.ownerId==='persona05'));
 });
 
+test('Pedir ayuda durante la validación conserva el estado y la autoridad de quien valida',()=>{
+ let {state,taskId}=fixture();state.data.tasks[0].requiresValidation=true;state.data.tasks[0].validatorId='persona01';state=call(state,taskId,'transition_task',{status:'Para validar',note:'Entrega para revisar'});
+ const requested=call(state,taskId,'task_followup',{...values(state,taskId),pause:false,requestCoordination:true,request:'Acordar una revisión de la entrega',neededBy:today});assert.equal(requested.data.tasks[0].status,'Para validar');
+ assert.throws(()=>call(requested,taskId,'task_followup',values(requested,taskId)),/conserva su estado/);
+ const cleared=call(requested,taskId,'task_followup',{action:'clear',note:'Se confirmó la revisión',followupKey:taskFollowupKey(requested,taskId,'persona05')});assert.equal(cleared.data.tasks[0].status,'Para validar');assert.equal(cleared.data.tasks[0].validatedBy,undefined);assert.equal(activeTaskIssues(cleared.data.issues,taskId).length,0);assert.throws(()=>call(cleared,taskId,'transition_task',{status:'Terminada',note:'Intento de aprobar'}),/validador/);
+});
+
 test('Una fila por tarea conserva permisos y separa los problemas generales de proyectos',()=>{
  let {state,taskId}=fixture();state=call(state,taskId,'task_followup',values(state,taskId));const first=state.data.issues[0];state.data.issues.push({...first,id:'second',title:'Otro bloqueo'});
  state.data.issues.push({...first,id:'project-issue',taskId:null,projectId:'project-fixture',title:'Problema general'});const rows=taskFollowups(state,'persona05');assert.equal(rows.length,1);assert.equal(rows[0].issues.length,2);

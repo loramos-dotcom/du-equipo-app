@@ -114,7 +114,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  let result:any={ok:true};
  switch(command.kind){
  case 'task_followup':{
-  const t=get('tasks',command.entityId!);version(t);if(!coord&&t.ownerId!==actorId)fail('Solo el responsable o Coordinación puede actualizar el bloqueo de esta tarea.',403);if(terminals.includes(t.status)||t.status==='Para validar')fail('La tarea debe estar pendiente, en curso o en espera.');checkFollowupVersion(t,true);
+  const t=get('tasks',command.entityId!);version(t);if(!coord&&t.ownerId!==actorId)fail('Solo el responsable o Coordinación puede actualizar el bloqueo de esta tarea.',403);if(terminals.includes(t.status))fail('La tarea debe estar abierta para gestionar su seguimiento.');checkFollowupVersion(t,true);
   if(a.action==='take'){
    checkCoord();const request=get('interventions',a.requestId);if(request.status!=='Solicitada'||!activeTaskIssues(d.issues,t.id).some(issue=>issue.id===request.issueId))fail('El pedido ya no está disponible en esta tarea.',409);request.nextAction=required(a.nextAction,'Próxima acción');request.status='Tomada';request.takenBy=actorId;request.takenAt=at;t.followupRevision=(t.followupRevision??0)+1;notify(t.ownerId,'Ayuda en gestión','tasks',t.id,request.nextAction);result={id:t.id};break;
   }
@@ -127,7 +127,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
    const note=required(a.note,'Qué permitió avanzar');if(t.status==='En espera'){const previous=['Pendiente','En curso'].includes(t.previousStatus)?t.previousStatus:'En curso',next=previous==='En curso'&&workBlockers(d.tasks,t).length?'Pendiente':previous;transition(t,next,note);}else closeTaskFollowup(t,note);result={id:t.id};break;
   }
   if(a.action!=='save')fail('Acción de seguimiento inválida.');
-  if(typeof a.pause!=='boolean'||typeof a.requestCoordination!=='boolean')fail('Indicá si la tarea espera o necesita ayuda.');
+  if(typeof a.pause!=='boolean'||typeof a.requestCoordination!=='boolean')fail('Indicá si la tarea espera o necesita ayuda.');if(t.status==='Para validar'&&a.pause)fail('La tarea conserva su estado Para validar; podés pedir ayuda sin pausarla.');
   const title=required(a.description,'Qué está pasando');validDate(a.followUpDate,'Fecha de seguimiento',true);
   let issue:Row|undefined;if(a.issueId){issue=get('issues',a.issueId);if(issue.taskId!==t.id||['Resuelta','Descartada'].includes(issue.status))fail('El seguimiento ya no está activo en esta tarea.',409);}else issue=visibleTaskIssues(s,t.id,actorId).find(issue=>issue.taskIntegrated);
   const values={title,dependency:typeof a.dependency==='string'?a.dependency.trim():'',nextAction:typeof a.nextAction==='string'?a.nextAction.trim():'',followUpDate:a.followUpDate,taskIntegrated:true};
