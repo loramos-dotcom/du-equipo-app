@@ -136,8 +136,8 @@ try{
   await more();await manager().getByRole('button',{name:'Ver hitos de gestión',exact:true}).click();await page.getByText('Hito compartido',{exact:true}).first().waitFor();await more();await manager().getByRole('button',{name:'Volver a proyectos',exact:true}).click();await manager().getByRole('region',{name:'Lista de proyectos',exact:true}).waitFor();
  });
  await check('La vista de escritorio y móvil no desborda y los botones por área son utilizables',async()=>{
-  await page.screenshot({path:'test-results/proyectos-navegacion-escritorio.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  await areaButtons().getByRole('button',{name:'Transversales',exact:true}).scrollIntoViewIfNeeded();await areaButtons().getByRole('button',{name:'Transversales',exact:true}).click();await manager().getByRole('button',{name:'Abrir Proyecto transversal de prueba',exact:true}).waitFor();await page.screenshot({path:'test-results/proyectos-navegacion-movil.png',fullPage:true});
+  await page.mouse.move(0,0);await page.waitForTimeout(250);await page.screenshot({path:'test-results/proyectos-navegacion-escritorio.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await areaButtons().getByRole('button',{name:'Transversales',exact:true}).scrollIntoViewIfNeeded();await areaButtons().getByRole('button',{name:'Transversales',exact:true}).click();await manager().getByRole('button',{name:'Abrir Proyecto transversal de prueba',exact:true}).waitFor();await page.mouse.move(0,0);await page.waitForTimeout(250);await page.screenshot({path:'test-results/proyectos-navegacion-movil.png',fullPage:true});
  });
  await page.setViewportSize({width:1440,height:1000});await reset();
  await check('Las asignaciones compartidas siguen reflejadas en el filtro por persona',async()=>{
