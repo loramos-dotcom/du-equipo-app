@@ -34,7 +34,7 @@ await context.route(origin+'/api/**',async route=>{const request=route.request()
 const screen=()=>page.getByRole('region',{name:'Bloqueos y ayuda',exact:true}),detail=()=>page.locator('dialog.detail-sheet'),form=()=>page.locator('dialog.form-dialog'),followup=()=>detail().getByRole('region',{name:'Bloqueos y ayuda de la tarea',exact:true});
 const task=()=>state.data.tasks.find(task=>task.id===taskId);
 async function check(name,fn){await fn();passed.push(name);console.log('PASS '+name);}
-async function showPage(){await page.locator('.sidebar').getByRole('button',{name:'Bloqueos y ayuda',exact:true}).click();await screen().getByRole('heading',{name:'Bloqueos y ayuda',exact:true}).waitFor();}
+async function showPage(){if(await detail().isVisible())await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();await page.locator('.sidebar').getByRole('button',{name:'Bloqueos y ayuda',exact:true}).click();await screen().getByRole('heading',{name:'Bloqueos y ayuda',exact:true}).waitFor();await screen().getByRole('button',{name:'Pendientes',exact:true}).click();}
 async function openTask(){await screen().getByRole('button',{name:'Preparar informe de prueba',exact:true}).click();await detail().getByRole('heading',{name:'Preparar informe de prueba',exact:true}).waitFor();}
 async function save(label='Guardar seguimiento'){await form().getByRole('button',{name:label,exact:true}).click();await form().waitFor({state:'hidden'});}
 async function block(text){await followup().getByRole('button',{name:'Registrar bloqueo',exact:true}).click();await form().getByLabel('¿Qué está pasando?',{exact:true}).fill(text);await form().getByLabel('Volver a revisar el',{exact:true}).fill(today);await save();}
