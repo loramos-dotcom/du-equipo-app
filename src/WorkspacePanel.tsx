@@ -3,15 +3,14 @@ import {useState} from 'react';
 import type {ReactNode} from 'react';
 import type {Row,State} from '../shared/model';
 import {formatDate} from '../shared/model';
-import {closedIssue} from '../shared/followup';
-import {taskFollowups} from '../shared/task-followup';
+import {followupCounts} from '../shared/task-followup';
 import {calendarDay,calendarFollowups} from '../shared/calendar';
 import type {SharedAgenda} from './useSharedAgenda';
 
 type Props={state:State;actorId:string;today:string;agenda:SharedAgenda;children:ReactNode;onCalendar:()=>void;onWeekly:(id:string)=>void;onCreate:()=>void;onCreateProject:()=>void;onIssues:()=>void;onProjects:()=>void};
 export default function WorkspacePanel({state,actorId,today,agenda,children,onCalendar,onWeekly,onCreate,onCreateProject,onIssues,onProjects}:Props){
- const d=state.data,actor=d.members.find(m=>m.id===actorId),tasks=d.tasks.filter(t=>t.ownerId===actorId&&!t.archived&&!['Terminada','Cancelada'].includes(t.status)).sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||a.title.localeCompare(b.title,'es'));
- const followupCount=taskFollowups(state,actorId).filter(row=>!row.closed).length+d.issues.filter(issue=>!issue.taskId&&!closedIssue(issue)&&(actor?.role==='Coordinación'||issue.ownerId===actorId)).length;
+ const d=state.data,tasks=d.tasks.filter(t=>t.ownerId===actorId&&!t.archived&&!['Terminada','Cancelada'].includes(t.status)).sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||a.title.localeCompare(b.title,'es'));
+ const followupCount=followupCounts(state,actorId).total;
  const [showAllFollowups,setShowAllFollowups]=useState(false);
  const followups=calendarFollowups(agenda.events,actorId,agenda.now),visibleFollowups=showAllFollowups?followups:followups.slice(0,4);
  const meetings=[...agenda.events.filter(e=>e.memberIds.includes(actorId)&&(e.allDay?calendarDay(e.end,true)>today:Date.parse(e.end)>agenda.now)).map(e=>({id:e.id,title:e.title,date:e.start,allDay:e.allDay,open:onCalendar})),...d.meetings.filter(m=>!m.calendarEventKey&&!['Cerrada','Cancelada'].includes(m.status)&&(m.attendees??[]).includes(actorId)&&m.date.slice(0,10)>=today).map(m=>({id:m.id,title:m.title,date:m.date,allDay:false,open:()=>onWeekly(m.id)}))].sort((a,b)=>a.date.localeCompare(b.date));

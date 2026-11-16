@@ -19,10 +19,9 @@ export function projectFollowups(state:State,actorId:string):Row[]{
  return state.data.issues.filter(issue=>!issue.taskId&&!issue.deletedAt&&!issue.archived&&(coord||issue.ownerId===actorId));
 }
 export function activeSharedProjectIssues<T extends {resolved:boolean;project:unknown}>(rows:T[]):T[]{return rows.filter(row=>!row.resolved&&!!row.project);}
-export function followupCounts(state:State,actorId:string,sharedIssues:{resolved:boolean;project:unknown}[]=[]){
- const coord=state.data.members.some(member=>member.id===actorId&&member.active&&member.role==='Coordinación');
- const tasks=taskFollowups(state,actorId).filter(row=>!row.closed).length,projects=projectFollowups(state,actorId).filter(issue=>!closedIssue(issue)).length+(coord?activeSharedProjectIssues(sharedIssues).length:0);
- return {tasks,projects,total:tasks+projects};
+export function followupCounts(state:State,actorId:string){
+ const tasks=taskFollowups(state,actorId).filter(row=>!row.closed).length;
+ return {tasks,total:tasks};
 }
 export function taskFollowups(state:State,actorId:string):TaskFollowupRow[]{
  const coord=state.data.members.some(member=>member.id===actorId&&member.active&&member.role==='Coordinación');
