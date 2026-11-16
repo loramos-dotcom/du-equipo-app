@@ -99,6 +99,7 @@ try{
   assert.equal(await summary.count(),1);assert.equal(await summary.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim()),theme);
   await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();
   await filter.click();assert.equal(await filter.getAttribute('aria-pressed'),'true');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.project-area-filters button[aria-pressed="true"][data-area="universidad"]')).color==='rgb(255, 255, 255)');
   const selected=await filter.evaluate(el=>({ink:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
   assert.equal(selected.ink,'rgb(255, 255, 255)');assert.notEqual(selected.bg,'rgb(255, 255, 255)');
   await areaButtons().getByRole('button',{name:'Todas',exact:true}).click();
