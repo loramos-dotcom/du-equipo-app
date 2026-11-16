@@ -1,11 +1,12 @@
 import {Search,List,LayoutGrid,X,ChevronDown,SlidersHorizontal,Download} from 'lucide-react';
+import {AreaBadge} from './AreaBadge';
 import {taskStatuses} from '../shared/model';
 import type {Row} from '../shared/model';
 import {emptyTaskFilters,taskFilterLabels} from '../shared/views';
 import type {TaskFilters} from '../shared/views';
 
 export function FilterSummary({count,total,label,filters,onClear}:{count:number;total:number;label:string;filters:string[];onClear:()=>void}){
- return <div className="filter-summary"><p role="status">Mostrando <strong>{count}</strong> de <strong>{total}</strong> {label}</p>{filters.length>0&&<><div className="active-filters" aria-label="Filtros aplicados">{filters.map(text=><span key={text}>{text}</span>)}</div><button className="text-button" onClick={onClear}><X size={13}/>Limpiar filtros</button></>}</div>;
+ return <div className="filter-summary"><p role="status">Mostrando <strong>{count}</strong> de <strong>{total}</strong> {label}</p>{filters.length>0&&<><div className="active-filters" aria-label="Filtros aplicados">{filters.map(text=>text.startsWith('Área: ')?<AreaBadge key={text} area={text.slice(6)} label={text}/>:<span key={text}>{text}</span>)}</div><button className="text-button" onClick={onClear}><X size={13}/>Limpiar filtros</button></>}</div>;
 }
 
 type Props={filters:TaskFilters;onChange:(filters:TaskFilters)=>void;members:Row[];actorId:string;count:number;total:number;view:string;onView:(view:string)=>void;onBulk:()=>void;onExport:()=>void};

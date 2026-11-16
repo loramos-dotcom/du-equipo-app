@@ -1,3 +1,4 @@
+import {areaTheme} from '../../../area-colors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Link2, Plus, Save, Trash2, X } from 'lucide-react'
 import { areas } from '../../data/demo'
@@ -390,7 +391,7 @@ export function ProjectEditor({
                 </select>
               </label>
               <label>Área
-                <select value={areaKey} onChange={(event) => changePrimaryArea(event.target.value)}>
+                <select className="area-control" {...areaTheme(areaKey)} value={areaKey} onChange={(event) => changePrimaryArea(event.target.value)}>
                   {areas.filter((area) => !allowedAreaKeys || allowedAreaKeys.includes(area.key) || area.key === project?.areaKey).map((area) => <option key={area.key} value={area.key} disabled={Boolean(allowedAreaKeys && !allowedAreaKeys.includes(area.key))}>{area.number}. {area.name}</option>)}
                 </select>
               </label>
@@ -429,7 +430,7 @@ export function ProjectEditor({
                 <legend>Dónde aparece</legend>
                 <div className="area-visibility-grid">
                   {selectableAreas.map((area) => (
-                    <label key={area.key}>
+                    <label key={area.key} className="area-control" {...areaTheme(area.key)}>
                       <input
                         type="checkbox"
                         aria-label={`Mostrar en ${area.name}`}

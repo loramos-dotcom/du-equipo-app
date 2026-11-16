@@ -1,3 +1,5 @@
+import {AreaTags} from '../../../AreaBadge'
+import {areaTheme} from '../../../area-colors'
 import { useEffect, useState } from 'react'
 import { Edit3, Save, ShieldCheck, Trash2, X } from 'lucide-react'
 import { areas } from '../../data/demo'
@@ -80,7 +82,7 @@ export function AccessManager({ onClose, onNotice }: AccessManagerProps) {
         <header><div><small>Administración general</small><h2 id="access-dialog-title">Gestionar edición por área</h2></div><button className="icon-button" type="button" aria-label="Cerrar" onClick={onClose}><X size={17} /></button></header>
         <form className="access-form" onSubmit={submit}>
           <div className="access-identity"><label>Mail<input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: normalizeEmail(event.target.value) })} placeholder="usuario@bue.edu.ar" required /></label><label>Nombre<input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} /></label></div>
-          <fieldset><legend>Áreas habilitadas para editar</legend><div className="access-area-grid">{areas.map((area) => <label key={area.key}><input type="checkbox" checked={draft.areaKeys.includes(area.key)} onChange={() => toggleArea(area.key)} /><span><b>{area.number}</b>{area.name}</span></label>)}</div></fieldset>
+          <fieldset><legend>Áreas habilitadas para editar</legend><div className="access-area-grid">{areas.map((area) => <label key={area.key} className="area-control" {...areaTheme(area.key)}><input type="checkbox" checked={draft.areaKeys.includes(area.key)} onChange={() => toggleArea(area.key)} /><span><b>{area.number}</b>{area.name}</span></label>)}</div></fieldset>
           <label className="dashboard-access"><input type="checkbox" checked={draft.canEditDashboard} onChange={(event) => setDraft({ ...draft, canEditDashboard: event.target.checked })} /><ShieldCheck size={17} /><span><strong>Tablero de Gestión</strong><small>Permitir edición, favoritos, orden y creación desde la vista consolidada.</small></span></label>
           <button className="primary-button access-save" type="submit" disabled={saving}><Save size={15} /> {saving ? 'Guardando...' : 'Aplicar permisos'}</button>
         </form>
@@ -88,7 +90,7 @@ export function AccessManager({ onClose, onNotice }: AccessManagerProps) {
           <h3>Accesos cargados</h3>
           {loading && <p>Cargando accesos...</p>}
           {error && <p className="editor-error">{error}</p>}
-          {!loading && !error && grants.map((grant) => <article key={grant.email}><div><strong>{grant.displayName || grant.email}</strong><small>{grant.email}</small><p>{[grant.canEditDashboard ? 'Tablero de Gestión' : '', ...areas.filter((area) => grant.areaKeys.includes(area.key)).map((area) => `${area.number}. ${area.name}`)].filter(Boolean).join(' · ') || 'Sin permisos de edición'}</p></div><button type="button" title="Editar acceso" onClick={() => edit(grant)}><Edit3 size={14} /></button><button className="danger" type="button" title="Eliminar acceso" onClick={() => setGrantPendingDeletion(grant)}><Trash2 size={14} /></button></article>)}
+          {!loading && !error && grants.map((grant) => <article key={grant.email}><div><strong>{grant.displayName || grant.email}</strong><small>{grant.email}</small><p>{grant.canEditDashboard&&<>Tablero de Gestión </>}<AreaTags areas={areas.filter(area=>grant.areaKeys.includes(area.key)).map(area=>({key:area.key,name:area.name}))}/>{!grant.canEditDashboard&&!grant.areaKeys.length&&'Sin permisos de edición'}</p></div><button type="button" title="Editar acceso" onClick={() => edit(grant)}><Edit3 size={14} /></button><button className="danger" type="button" title="Eliminar acceso" onClick={() => setGrantPendingDeletion(grant)}><Trash2 size={14} /></button></article>)}
         </div>
         <footer><button className="secondary-button" type="button" onClick={onClose}>Cerrar</button></footer>
       </section>

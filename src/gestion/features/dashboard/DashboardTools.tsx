@@ -1,3 +1,4 @@
+import {AreaBadge} from '../../../AreaBadge'
 import { useMemo, useState } from 'react'
 import {
   ArrowDown,
@@ -117,7 +118,7 @@ export function ExecutiveSummary({ projects }: ExecutiveSummaryProps) {
             onClick={() => focusProject(project.id)}
           >
             <span className="executive-index">{String(index + 1).padStart(2, '0')}</span>
-            <span className="executive-project"><strong>{project.name}</strong><small>{project.areaName}</small></span>
+            <span className="executive-project"><strong>{project.name}</strong><small><AreaBadge area={project.areaKey} label={project.areaName}/></small></span>
             <span className={`executive-budget ${project.budget ? '' : 'is-empty'}`}>{project.budget || 'Sin presupuesto'}</span>
             <span className={`executive-mechi ${project.mechi === undefined ? 'is-empty' : project.mechi ? 'is-ok' : 'is-no'}`}><MechiVisual value={project.mechi} /></span>
             <span className={`executive-status ${displayStatus}`}><i />{projectStatusLabel(project)}</span>
@@ -224,7 +225,7 @@ export function OrderDialog({ projects, onClose, onSaved, onError }: OrderDialog
                 dropAt(project.id, event.clientY >= bounds.top + bounds.height / 2)
               }}
             >
-              <GripVertical size={17} /><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{project.name}</strong><small>{project.areaName}</small></div>
+              <GripVertical size={17} /><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{project.name}</strong><small><AreaBadge area={project.areaKey} label={project.areaName}/></small></div>
               <button type="button" title="Subir" aria-label={`Subir ${project.name}`} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp size={15} /></button>
               <button type="button" title="Bajar" aria-label={`Bajar ${project.name}`} disabled={index === ordered.length - 1} onClick={() => move(index, 1)}><ArrowDown size={15} /></button>
             </div>
@@ -324,7 +325,7 @@ export function ReportBuilder({ projects, initialAreaKey, initialAreaName, accou
         <div className="report-project-list">
           {visible.map((project) => (
             <button className={selected.has(project.id) ? 'is-selected' : ''} type="button" key={project.id} onClick={() => toggle(project.id)}>
-              {selected.has(project.id) ? <CheckSquare size={17} /> : <Square size={17} />}<span><strong>{project.name}</strong><small>{project.areaName}{project.kind === 'subproject' ? ' · Subproyecto' : ''}</small></span>
+              {selected.has(project.id) ? <CheckSquare size={17} /> : <Square size={17} />}<span><strong>{project.name}</strong><small><AreaBadge area={project.areaKey} label={project.areaName}/>{project.kind === 'subproject' ? ' · Subproyecto' : ''}</small></span>
             </button>
           ))}
         </div>

@@ -1,13 +1,14 @@
 import type {ReactNode} from 'react';
 import {RichText} from './gestion/components/RichText';
 import './project-sheet.css';
+import {AreaTags} from './AreaBadge';
 
-export type ProjectField={label:string;value?:string;wide?:boolean};
+export type ProjectField={label:string;value?:string;wide?:boolean;areaValues?:string[]};
 export type ProjectSheetContext={fields:ProjectField[];status:'active'|'pending'|'alert'|'finished';kind:'project'|'subproject';briefUrl?:string};
 
 export function ProjectHeading({title,kind='project',status,leadName,members=[],areas=[],breadcrumb,actions}:{title:string;kind?:'project'|'subproject';status:ProjectSheetContext['status'];leadName?:string;members?:string[];areas?:string[];breadcrumb?:ReactNode;actions:ReactNode}){
  const labels={active:'En curso',pending:'Pendiente',alert:'Alerta/Bloqueo',finished:'Finalizado'},tones={active:'blue',pending:'amber',alert:'red',finished:'green'};
- return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span><div className="project-sheet-assignment"><p><strong>Referente DU:</strong> {leadName||'Sin asignar'}</p>{members.length>0&&<p><strong>Personas asignadas:</strong> {members.join(', ')}</p>}<p><strong>Áreas de seguimiento:</strong> {areas.join(', ')||'Sin asignar'}</p></div></div><div className="project-sheet-actions">{actions}</div></>;
+ return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span><div className="project-sheet-assignment"><p><strong>Referente DU:</strong> {leadName||'Sin asignar'}</p>{members.length>0&&<p><strong>Personas asignadas:</strong> {members.join(', ')}</p>}<p><strong>Áreas de seguimiento:</strong> {areas.length?<AreaTags areas={areas}/>:<>Sin asignar</>}</p></div></div><div className="project-sheet-actions">{actions}</div></>;
 }
 
 export function ProjectTabs({selected,onSelect,extra=[],tasks=true}:{selected:string;onSelect:(tab:string)=>void;extra?:string[];tasks?:boolean}){
@@ -16,5 +17,5 @@ export function ProjectTabs({selected,onSelect,extra=[],tasks=true}:{selected:st
 }
 
 export function ProjectSummary({fields}:{fields:ProjectField[]}){
- return <dl className="project-sheet-grid">{fields.filter(field=>field.value).map(field=><div key={field.label} className={field.wide||field.label==='Resultado esperado'||field.label==='Notas'&&(field.value?.length??0)>220?'wide':''}><dt>{field.label}</dt><dd><RichText value={field.value!}/></dd></div>)}</dl>;
+ return <dl className="project-sheet-grid">{fields.filter(field=>field.value).map(field=><div key={field.label} className={field.wide||field.label==='Resultado esperado'||field.label==='Notas'&&(field.value?.length??0)>220?'wide':''}><dt>{field.label}</dt><dd>{field.areaValues?.length?<AreaTags areas={field.areaValues}/>:<RichText value={field.value!}/>}</dd></div>)}</dl>;
 }

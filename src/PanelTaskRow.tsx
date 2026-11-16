@@ -3,7 +3,7 @@ import {CalendarDays,Flag,Clock,MessagesSquare,MoreHorizontal,Pencil,Trash2,Arro
 import {formatDate} from '../shared/model';
 import type {Row} from '../shared/model';
 
-type Props={task:Row;project:string;owner:string;area?:string;today:string;board:boolean;status:ReactNode;relations:ReactNode;onOpen:()=>void;onEdit?:()=>void;onDelete?:()=>void;onPlan?:()=>void;planLabel:string;onHelp?:()=>void;hasRequest:boolean;priority:boolean;onPriority?:()=>void;priorityBusy?:boolean};
+type Props={task:Row;project:string;owner:string;area?:ReactNode;today:string;board:boolean;status:ReactNode;relations:ReactNode;onOpen:()=>void;onEdit?:()=>void;onDelete?:()=>void;onPlan?:()=>void;planLabel:string;onHelp?:()=>void;hasRequest:boolean;priority:boolean;onPriority?:()=>void;priorityBusy?:boolean};
 export default function PanelTaskRow({task:t,project,owner,area,today,board,status,relations,onOpen,onEdit,onDelete,onPlan,planLabel,onHelp,hasRequest,priority,onPriority,priorityBusy}:Props){
  const closed=['Terminada','Cancelada'].includes(t.status),overdue=t.dueDate&&t.dueDate<today&&!closed;
  const closeMenu=(target:HTMLElement,action:()=>void)=>{target.closest('details')?.removeAttribute('open');action();};

@@ -1,3 +1,4 @@
+import {AreaBadge} from '../../../AreaBadge'
 import { useMemo, useState } from 'react'
 import {
   BarChart3,
@@ -316,7 +317,7 @@ export function PortfolioPanels({
                     <div className="indicator-grid">
                       {indicators.map((item) => (
                         <article className={`indicator-card tone-${statusTone(item.status)}`} key={item.id}>
-                          <header><div><small>{item.period || item.areaName}</small><h3>{item.name}</h3></div><span>{item.status || 'Sin estado'}</span></header>
+                          <header><div><small>{item.period || <AreaBadge area={item.areaKey} label={item.areaName}/>}</small><h3>{item.name}</h3></div><span>{item.status || 'Sin estado'}</span></header>
                           <div className="indicator-values"><strong>{item.valueText || (item.valueNumeric ?? '—')}{item.unit ? ` ${item.unit}` : ''}</strong>{(item.targetText || item.targetNumeric != null) && <span>Meta: {item.targetText || item.targetNumeric}{item.unit ? ` ${item.unit}` : ''}</span>}</div>
                           {item.projectName && <p className="portfolio-context">Proyecto: {item.projectName}</p>}
                           {item.notes && <p><RichText value={item.notes} /></p>}
@@ -355,7 +356,7 @@ export function PortfolioPanels({
                         const percent = budgeted > 0 ? Math.min(100, Math.max(0, (executed / budgeted) * 100)) : 0
                         return (
                           <article className="budget-row" key={item.id}>
-                            <div><small>{item.period || item.areaName}</small><h3>{item.concept}</h3>{item.detail && <p><RichText value={item.detail} /></p>}</div>
+                            <div><small>{item.period || <AreaBadge area={item.areaKey} label={item.areaName}/>}</small><h3>{item.concept}</h3>{item.detail && <p><RichText value={item.detail} /></p>}</div>
                             <div className="budget-values"><span><small>Presupuestado</small><strong>{formatMoney(item.budgeted)}</strong></span><span><small>Ejecutado</small><strong>{formatMoney(item.executed)}</strong></span></div>
                             <div className="budget-track" aria-label={`${percent.toFixed(1)}% ejecutado`}><span style={{ width: `${percent}%` }} /></div>
                             <b>{percent.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%</b>

@@ -48,6 +48,15 @@ try{
   assert.equal(await shared.locator('.weekly-task-project').innerText(),sharedProjectTitle);assert.deepEqual((await shared.getByRole('list',{name:'Áreas del proyecto',exact:true}).getByRole('listitem').allTextContents()).sort(),['SSGDA','SSPIE','SSTEDU','Transversales'].sort());
   assert.equal(await own.locator('.weekly-task-meta').getByText('T101',{exact:true}).count(),0);assert.equal(await shared.locator('.weekly-task-meta').getByText('T102',{exact:true}).count(),0);assert.equal(await shared.locator('.weekly-task-area').getByText('UEICEE',{exact:true}).count(),0);
  });
+ await check('Las áreas tienen colores distintos y el mismo color se conserva en todos los chips',async()=>{
+  const chips=await page.locator('.weekly-task-area').evaluateAll(elements=>elements.map(el=>({area:el.dataset.area,ink:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderColor})));
+  const unique=new Map();
+  for(const chip of chips){
+   assert.ok(chip.area);assert.notEqual(chip.ink,chip.bg);assert.notEqual(chip.bg,'rgba(0, 0, 0, 0)');
+   if(unique.has(chip.area))assert.deepEqual(chip,unique.get(chip.area));else unique.set(chip.area,chip);
+  }
+  assert.equal(unique.size,5);assert.equal(new Set([...unique.values()].map(chip=>chip.bg)).size,5);
+ });
  await check('Arrastrar desde el resto guarda la selección y la recupera al recargar',async()=>{
   await task(lower(),'Revisar documento de prueba').dragTo(upper());await task(upper(),'Revisar documento de prueba').waitFor();await settle();
   assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.normal,true);

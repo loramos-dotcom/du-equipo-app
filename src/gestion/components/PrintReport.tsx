@@ -27,6 +27,7 @@ import { externalLinkUrl } from '../domain/externalLink'
 import { ProjectCard } from './ProjectCard'
 import { ProjectVisualMetrics } from './ProjectVisualMetrics'
 import { RichText } from './RichText'
+import {AreaBadge} from '../../AreaBadge'
 import { isExcludedFromDashboard } from '../features/portfolio/dashboardSpecialViews'
 
 const statusLabels: Record<ProjectStatus, string> = {
@@ -346,7 +347,7 @@ export function PrintReport({ areaName, projects, portfolioData, generatedAt, on
                 const displayStatus = getDisplayStatus(project)
                 return (
                 <div className="print-summary-row" role="row" key={project.id}>
-                  <div className="print-summary-project"><strong>{String(index + 1).padStart(2, '0')}</strong><span><b>{project.name}</b><small>{project.areaName}</small></span></div>
+                  <div className="print-summary-project"><strong>{String(index + 1).padStart(2, '0')}</strong><span><b>{project.name}</b><small><AreaBadge className="print-area" area={project.areaKey} label={project.areaName}/></small></span></div>
                   <span className={`print-summary-status ${displayStatus}`}><i />{statusLabels[displayStatus]}</span>
                 </div>
                 )

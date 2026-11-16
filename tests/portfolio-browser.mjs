@@ -83,6 +83,26 @@ try{
   assert.equal(await manager().getByRole('combobox').count(),0);assert.equal(await manager().getByRole('button',{name:'Exportar',exact:true}).isVisible().catch(()=>false),false);
   assert.deepEqual(await manager().getByRole('columnheader').allTextContents(),['Proyecto','Área','Referente DU','Estado']);
  });
+ await check('Los filtros, la lista y la ficha usan el mismo color para cada área sin colorear los estados',async()=>{
+  const buttons=areaButtons().locator('button[data-area]');
+  assert.equal(await buttons.count(),10);
+  const colors=await buttons.evaluateAll(elements=>elements.map(el=>getComputedStyle(el).getPropertyValue('--area-bg').trim()));
+  assert.equal(new Set(colors).size,10);
+  const filter=areaButtons().getByRole('button',{name:'SSGAD',exact:true});
+  const theme=await filter.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim());
+  const row=manager().getByRole('row').filter({has:page.getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true})});
+  const chip=row.locator('.area-chip[data-area="gestion_administrativa"]');
+  assert.equal(await chip.count(),1);assert.equal(await chip.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim()),theme);
+  assert.equal(await row.locator('.badge[data-area]').count(),0);
+  await openProject('Proyecto sin favorito');
+  const summary=detail().locator('.project-sheet-grid .area-chip[data-area="gestion_administrativa"]');
+  assert.equal(await summary.count(),1);assert.equal(await summary.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim()),theme);
+  await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();
+  await filter.click();assert.equal(await filter.getAttribute('aria-pressed'),'true');
+  const selected=await filter.evaluate(el=>({ink:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
+  assert.equal(selected.ink,'rgb(255, 255, 255)');assert.notEqual(selected.bg,'rgb(255, 255, 255)');
+  await areaButtons().getByRole('button',{name:'Todas',exact:true}).click();
+ });
  await check('Mis proyectos y área se combinan sin ampliar el alcance ni modificar los datos',async()=>{
   const before=JSON.stringify(data.projects);
   await areaButtons().getByRole('button',{name:'SSTEDU',exact:true}).click();await manager().getByText('No hay proyectos con estos filtros',{exact:true}).waitFor();

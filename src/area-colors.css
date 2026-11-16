@@ -1,0 +1,11 @@
+.area-chip.area-chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:2px 7px;border:1px solid var(--area-border);border-radius:6px;background:var(--area-bg);color:var(--area-ink);font-size:10px;font-weight:550;line-height:1.5;letter-spacing:normal;text-transform:none;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+.area-tags{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;max-width:100%;vertical-align:middle}
+.area-control.area-control{color:var(--area-ink);background:var(--area-bg);border-color:var(--area-border)}
+.area-control.area-control:hover{color:var(--area-ink);border-color:var(--area-accent)}
+.area-control.area-control[aria-pressed=true]{color:#fff;background:var(--area-ink);border-color:var(--area-ink);box-shadow:0 0 0 1px var(--area-ink)}
+.area-control input[type=checkbox]{accent-color:var(--area-ink)}
+.area-card[data-area]{border-top:3px solid var(--area-accent)}
+.area-card[data-area] .area-monogram{background:var(--area-bg);color:var(--area-ink)}
+.area-title[data-area]{color:var(--area-ink)}
+.project-table-area .area-tags{white-space:normal}
+.area-chip.print-area{print-color-adjust:exact;-webkit-print-color-adjust:exact}
