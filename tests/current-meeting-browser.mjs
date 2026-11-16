@@ -29,6 +29,7 @@ const select=()=>page.getByRole('combobox',{name:'Reunión seleccionada',exact:t
 async function check(name,fn){await fn();passed.push(name);console.log('PASS '+name);}
 async function periods(review,planning){await page.waitForFunction(([a,b])=>{const texts=[...document.querySelectorAll('.meeting-context strong')].map(node=>node.textContent);return texts[0]===a&&texts[1]===b;},[rangeLabel(review),rangeLabel(planning)]);}
 async function refresh(){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/state');await page.getByRole('button',{name:'Actualizar datos del equipo',exact:true}).click();await response;}
+async function operations(){if(!await page.locator('.meeting-operational').evaluate(element=>element.open))await page.locator('.meeting-operational>summary').click();}
 async function save(label='Guardar cambios'){await form().getByRole('button',{name:label,exact:true}).click();await form().waitFor({state:'hidden'});}
 try{
  await page.goto(origin+'/#Reuni%C3%B3n%20semanal');await select().waitFor();
@@ -55,8 +56,8 @@ try{
   await periods(current,next);assert.equal(await select().inputValue(),'');
   await page.getByRole('button',{name:'Agregar prioridad del equipo',exact:true}).click();await form().getByLabel('¿Qué necesita impulsar el equipo?',{exact:true}).fill('Validar la entrega de prueba');await save('Guardar prioridad');await page.getByText('Validar la entrega de prueba',{exact:true}).waitFor();
   assert.equal(commands.at(-1).kind,'meeting_priority');assert.equal(commands.at(-1).entityId,currentId);
-  await page.locator('.meeting-operational>summary').click();await page.getByRole('button',{name:'Proponer tema',exact:true}).click();await form().getByLabel('Asunto',{exact:true}).fill('Revisar entrega de prueba');await form().getByLabel('Motivo del cambio',{exact:true}).fill('Necesitamos acordar la entrega');await save();assert.equal(commands.at(-1).data.meetingId,currentId);assert.ok(state.data.agenda.some(item=>item.meetingId===currentId&&item.title==='Revisar entrega de prueba'));
-  await page.locator('.meeting-operational>summary').click();await page.getByRole('button',{name:'Registrar decisión',exact:true}).click();await form().getByLabel('Acuerdo concreto',{exact:true}).fill('Acordamos revisar la entrega');await save();assert.equal(commands.at(-1).data.meetingId,currentId);assert.ok(state.data.decisions.some(item=>item.meetingId===currentId&&item.text==='Acordamos revisar la entrega'));
+  await operations();await page.getByRole('button',{name:'Proponer tema',exact:true}).click();await form().getByLabel('Asunto',{exact:true}).fill('Revisar entrega de prueba');await form().getByLabel('Motivo del cambio',{exact:true}).fill('Necesitamos acordar la entrega');await save();assert.equal(commands.at(-1).data.meetingId,currentId);assert.ok(state.data.agenda.some(item=>item.meetingId===currentId&&item.title==='Revisar entrega de prueba'));
+  await operations();await page.locator('.decisions-panel .section-heading').getByRole('button',{name:'Registrar decisión',exact:true}).click();await form().getByLabel('Acuerdo concreto',{exact:true}).fill('Acordamos revisar la entrega');await save();assert.equal(commands.at(-1).data.meetingId,currentId);assert.ok(state.data.decisions.some(item=>item.meetingId===currentId&&item.text==='Acordamos revisar la entrega'));
   await page.screenshot({path:'test-results/portfolio-current-meeting-open.png',fullPage:true});
  });
  await check('El lunes la vista automática avanza sin modificar la reunión de la semana anterior',async()=>{
@@ -68,4 +69,4 @@ try{
  });
  assert.deepEqual(state.data.meetings.find(meeting=>meeting.id==='m1'),historical);assert.equal(JSON.stringify(state.snapshots),snapshots);assert.deepEqual(errors,[]);
  await writeFile('test-results/current-meeting-browser.json',JSON.stringify({passed,errors},null,2));console.log('PASS '+passed.length+' recorridos de reunión semanal');
-}finally{await browser.close();}
+}catch(error){console.error('Formulario de prueba:',await page.locator('dialog[open]').allInnerTexts());await page.screenshot({path:'test-results/portfolio-current-meeting-failure.png',fullPage:true});throw error;}finally{await browser.close();}
