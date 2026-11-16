@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execute,publicState} from '../shared/domain.ts';
 import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
-import {activeTaskIssues,taskFollowups,taskFollowupKey,requestsForTask} from '../shared/task-followup.ts';
+import {activeTaskIssues,taskFollowups,taskFollowupKey,requestsForTask,followupCounts} from '../shared/task-followup.ts';
 import {pendingInterventions} from '../shared/followup.ts';
 import {stateDelta} from '../server/relational.ts';
 import {api} from '../server/api.ts';
@@ -14,6 +14,17 @@ function call(state:State,id:string,kind:string,data:Record<string,any>,actor='p
  return execute(state,actor,{id:crypto.randomUUID(),kind,entityId:id,expectedVersion:state.data.tasks.find(task=>task.id===id)?.version,data},now).state;
 }
 const values=(state:State,id:string,actor='persona05')=>({action:'save',description:'Falta confirmar el insumo',dependency:'Área de prueba',nextAction:'Confirmar la recepción',followUpDate:today,pause:true,requestCoordination:false,followupKey:taskFollowupKey(state,id,actor)});
+
+test('El contador reúne las mismas tareas y problemas de ambas pestañas, sin duplicar bloqueos ni incluir registros cerrados o ajenos',()=>{
+ let {state,taskId}=fixture();state=call(state,taskId,'task_followup',values(state,taskId));const issue=state.data.issues[0];
+ state.data.issues.push({...issue,id:'second-block',title:'Segundo bloqueo de la misma tarea'},{...issue,id:'own-project',taskId:null,projectId:'project-fixture'},{...issue,id:'other-project',taskId:null,ownerId:'persona06',projectId:'project-fixture'},{...issue,id:'archived-project',taskId:null,archived:true},{...issue,id:'deleted-project',taskId:null,deletedAt:now.toISOString()},{...issue,id:'closed-project',taskId:null,status:'Resuelta'});
+ const shared=[{resolved:false,project:{id:'shared-one'}},{resolved:false,project:{id:'shared-two'}},{resolved:true,project:{id:'shared-closed'}},{resolved:false,project:null}],before=structuredClone(state);
+ assert.deepEqual(followupCounts(state,'persona01',shared),{tasks:1,projects:4,total:5});
+ assert.deepEqual(followupCounts(state,'persona05',shared),{tasks:1,projects:1,total:2});
+ assert.deepEqual(followupCounts(state,'persona06',shared),{tasks:0,projects:1,total:1});
+ state=call(state,taskId,'task_followup',{action:'clear',note:'Insumos recibidos',followupKey:taskFollowupKey(state,taskId,'persona05')});
+ assert.deepEqual(followupCounts(state,'persona01',shared),{tasks:0,projects:4,total:4});assert.equal(before.data.tasks[0].status,'En espera');
+});
 
 test('Registrar un bloqueo desde la tarea guarda problema y estado en una operación idempotente',()=>{
  const {state,taskId}=fixture(),before=structuredClone(state),command:Command={id:'followup-idempotent',kind:'task_followup',entityId:taskId,expectedVersion:state.data.tasks[0].version,data:values(state,taskId)};

@@ -14,6 +14,16 @@ export function taskFollowupKey(state:State,taskId:string,actorId:string){
  return JSON.stringify([...issues.map(issue=>['issues',issue.id,issue.version]),...state.data.interventions.filter(request=>ids.has(request.issueId)&&!request.deletedAt&&!request.archived).map(request=>['interventions',request.id,request.version])].sort((a,b)=>String(a[1]).localeCompare(String(b[1]))));
 }
 export type TaskFollowupRow={task:Row;issues:Row[];requests:Row[];date:string;closed:boolean};
+export function projectFollowups(state:State,actorId:string):Row[]{
+ const coord=state.data.members.some(member=>member.id===actorId&&member.active&&member.role==='Coordinación');
+ return state.data.issues.filter(issue=>!issue.taskId&&!issue.deletedAt&&!issue.archived&&(coord||issue.ownerId===actorId));
+}
+export function activeSharedProjectIssues<T extends {resolved:boolean;project:unknown}>(rows:T[]):T[]{return rows.filter(row=>!row.resolved&&!!row.project);}
+export function followupCounts(state:State,actorId:string,sharedIssues:{resolved:boolean;project:unknown}[]=[]){
+ const coord=state.data.members.some(member=>member.id===actorId&&member.active&&member.role==='Coordinación');
+ const tasks=taskFollowups(state,actorId).filter(row=>!row.closed).length,projects=projectFollowups(state,actorId).filter(issue=>!closedIssue(issue)).length+(coord?activeSharedProjectIssues(sharedIssues).length:0);
+ return {tasks,projects,total:tasks+projects};
+}
 export function taskFollowups(state:State,actorId:string):TaskFollowupRow[]{
  const coord=state.data.members.some(member=>member.id===actorId&&member.active&&member.role==='Coordinación');
  return state.data.tasks.filter(task=>!task.deletedAt&&!task.archived).flatMap(task=>{
