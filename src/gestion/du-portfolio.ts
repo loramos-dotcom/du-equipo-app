@@ -17,6 +17,7 @@ export const projectAreaLabels:Record<string,string>={gestion_administrativa:'SS
 
 export type DuPortfolio={
  localProjects?:Project[];onOpenLocal?:(id:string)=>void;onCreateLocal?:()=>void;
+ onOpenWork?:(id:string,section:string,context:import('../ProjectSheet').ProjectSheetContext)=>void;
  followedAreaKeys:string[];coordinator:boolean;directProjectIds:string[];
  people:{id:string;name:string}[];
  priorityIds:string[];assignments:Record<string,{memberIds:string[];members:string[];areaKeys:string[];version:number;leadName?:string}>;

@@ -1,0 +1,28 @@
+.project-detail .project-sheet-heading{padding:44px 36px 22px}
+.project-detail .project-sheet-heading>.eyebrow{display:block;margin:0 0 20px;font-size:11px;font-weight:700;letter-spacing:.13em}
+.project-detail .project-sheet-heading>h2{margin:0 0 14px;font-size:28px;line-height:1.18;letter-spacing:-.03em;color:#253343}
+.project-detail .project-sheet-assignment{margin-top:22px;color:#607085;font-size:14px;line-height:1.5}
+.project-detail .project-sheet-assignment p{margin:4px 0}
+.project-detail .project-sheet-assignment strong{font-weight:600}
+.project-detail .project-sheet-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 36px 28px}
+.project-detail .project-sheet-actions:empty{display:none}
+.project-detail .project-sheet-tabs{display:flex;align-items:stretch;gap:4px;padding:0 28px;border-bottom:1px solid #d7e0e8;position:relative;overflow:visible}
+.project-detail .project-sheet-tabs>button,.project-detail .project-sheet-more>summary{display:flex;align-items:center;min-height:45px;padding:12px 10px;border:0;border-bottom:3px solid transparent;background:transparent;color:#607085;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;list-style:none}
+.project-detail .project-sheet-more>summary::-webkit-details-marker{display:none}
+.project-detail .project-sheet-tabs>button.active,.project-detail .project-sheet-more.active>summary{color:#253343;font-weight:700;border-bottom-color:#253343}
+.project-detail .project-sheet-more{position:relative}
+.project-detail .project-sheet-more[open]>summary{background:#f2f6f8}
+.project-detail .project-sheet-more>div{position:absolute;top:100%;right:0;z-index:8;min-width:205px;padding:6px;background:white;border:1px solid #d7e0e8;border-radius:8px;box-shadow:0 8px 24px #25334324}
+.project-detail .project-sheet-more button{display:block;width:100%;padding:10px 12px;border:0;border-radius:4px;text-align:left;background:white;color:#253343;font-size:13px;cursor:pointer}
+.project-detail .project-sheet-more button:hover,.project-detail .project-sheet-more button[aria-pressed=true]{background:#edf3f6}
+.project-detail .project-sheet-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px 28px;margin:0}
+.project-detail .project-sheet-grid>.wide{grid-column:1/-1}
+.project-detail .project-sheet-grid dt{margin:0 0 9px;color:#607085;font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.project-detail .project-sheet-grid dd{margin:0;color:#253343;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.project-detail .project-sheet-grid dd p{margin:0 0 8px}
+.project-detail .project-sheet-grid dd p:last-child{margin-bottom:0}
+.project-detail .project-sheet-body{padding:28px 36px}
+@media(max-width:760px){.detail-sheet.project-detail{width:100%;max-width:100vw}}
+@media(max-width:600px){.project-detail .project-sheet-heading{padding:40px 20px 18px}.project-detail .project-sheet-heading>h2{font-size:25px}.project-detail .project-sheet-actions{padding:0 20px 20px}.project-detail .project-sheet-tabs{padding:0 10px;gap:0}.project-detail .project-sheet-tabs>button,.project-detail .project-sheet-more>summary{font-size:11px;padding:10px 7px}.project-detail .project-sheet-grid{grid-template-columns:minmax(0,1fr);gap:22px}.project-detail .project-sheet-body{padding:24px 20px}.project-detail .project-sheet-more>div{right:0}}
+.detail-sheet.project-detail{width:750px;max-width:95vw;font-family:Archivo,'Segoe UI',sans-serif}
+.detail-sheet.project-detail>.detail-close{top:16px;right:16px;width:34px;height:34px;border:0;border-radius:6px;background:#f2f6f8}
