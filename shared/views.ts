@@ -1,4 +1,4 @@
-import {addDays,normalize} from './model.ts';
+import {addDays,normalize,weekStart} from './model.ts';
 import type {Row,State} from './model.ts';
 import {workSearchText,workBlockers} from './work.ts';
 
@@ -11,9 +11,15 @@ export function selectTasks(state:State,filters:TaskFilters,today:string){
  const rows=state.data.tasks.filter(t=>!t.deletedAt&&(filters.archived||!t.archived)&&(filters.relationship!=='blocked'||workBlockers(state.data.tasks,t).length>0)&&(!filters.owner||t.ownerId===filters.owner)&&(!filters.state||(filters.state==='open'?!['Terminada','Cancelada'].includes(t.status):t.status===filters.state))&&(!filters.independent||!t.projectId)&&(!filters.q||normalize(workSearchText(state.data.tasks,t)).includes(normalize(filters.q.trim())))&&(!filters.due||!['Terminada','Cancelada'].includes(t.status)&&t.dueDate&&(filters.due==='soon'?t.dueDate<=addDays(today,state.settings.dueDays):t.dueDate<today)));
  return rows.sort((a,b)=>filters.sort==='title'?a.title.localeCompare(b.title):filters.sort==='due'?(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||a.title.localeCompare(b.title):(b.updatedAt??b.createdAt??'').localeCompare(a.updatedAt??a.createdAt??'')||a.title.localeCompare(b.title));
 }
+/** The automatic view only opens a meeting for this week and next; history is explicitly selected. */
 export function preferredMeeting(meetings:Row[],today:string){
- return meetings.filter(m=>!m.calendarEventKey).sort((a,b)=>{
-  const upcoming=(m:Row)=>!['Cerrada','Cancelada'].includes(m.status)&&m.date.slice(0,10)>=today;
+ const current=weekStart(today),next=addDays(current,7);
+ return meetings.filter(m=>{
+  if(m.calendarEventKey||['Cerrada','Cancelada'].includes(m.status))return false;
+  const review=m.weekId||weekStart(m.date.slice(0,10)),planning=m.planningWeekId||addDays(review,7);
+  return review===current&&planning===next;
+ }).sort((a,b)=>{
+  const upcoming=(m:Row)=>m.date.slice(0,10)>=today;
   return Number(upcoming(b))-Number(upcoming(a))||(upcoming(a)?a.date.localeCompare(b.date):b.date.localeCompare(a.date));
  })[0]?.id??'';
 }

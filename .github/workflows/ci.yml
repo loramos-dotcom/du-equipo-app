@@ -33,6 +33,7 @@ jobs:
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/work-links-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/task-form-options-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/weekly-tasks-browser.mjs
+          DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/current-meeting-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/portfolio-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/task-followup-browser.mjs
           DU_TEST_ORIGIN=http://127.0.0.1:4361 node --experimental-strip-types tests/required-projects-browser.mjs
