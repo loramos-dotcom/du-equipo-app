@@ -16,6 +16,7 @@ export function priorityFirstProjects(projects:Project[]):Project[]{
 export const projectAreaLabels:Record<string,string>={gestion_administrativa:'SSGAD',aprendizaje:'SSGDA',tecnologia:'SSTEDU',planeamiento:'SSPIE',privada:'Privada',agencia:'Agencia',ueicee:'UEICEE',universidad:'Universidad',comu_prensa:'Comunicación',transversales:'Transversales'};
 
 export type DuPortfolio={
+ overlayOpen?:boolean;
  localProjects?:Project[];onOpenLocal?:(id:string)=>void;onCreateLocal?:()=>void;
  onOpenWork?:(id:string,section:string,context:import('../ProjectSheet').ProjectSheetContext)=>void;
  followedAreaKeys:string[];coordinator:boolean;directProjectIds:string[];
