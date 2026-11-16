@@ -4,10 +4,12 @@ import {ArrowDown,ArrowUp,ArrowUpRight,CalendarDays,Flag,GripVertical} from 'luc
 import type {Row} from '../shared/model';
 import {formatDate} from '../shared/model';
 import type {WeekTask} from '../shared/weekly-tasks';
+import {managementAreaKey} from '../shared/project-portfolios';
+import {projectAreaLabels} from './gestion/du-portfolio';
 
-type Props={selected:WeekTask[];rest:WeekTask[];editable:boolean;closed:boolean;onMove:(task:Row,selected:boolean)=>Promise<void>;onOpen:(task:Row)=>void;onAdvance:(row:WeekTask)=>void;status:(value:string)=>ReactNode};
+type Props={selected:WeekTask[];rest:WeekTask[];projects:Row[];areas:Row[];editable:boolean;closed:boolean;onMove:(task:Row,selected:boolean)=>Promise<void>;onOpen:(task:Row)=>void;onAdvance:(row:WeekTask)=>void;status:(value:string)=>ReactNode};
 const dragType='application/x-du-week-task';
-export default function WeeklyTasks({selected,rest,editable,closed,onMove,onOpen,onAdvance,status}:Props){
+export default function WeeklyTasks({selected,rest,projects,areas,editable,closed,onMove,onOpen,onAdvance,status}:Props){
  const [dragged,setDragged]=useState(''),[target,setTarget]=useState<'week'|'rest'|null>(null),[pending,setPending]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function move(row:WeekTask,toWeek:boolean){
   if(!editable||pending)return;
@@ -27,9 +29,12 @@ export default function WeeklyTasks({selected,rest,editable,closed,onMove,onOpen
  }
  function row(item:WeekTask,inWeek:boolean){
   const t=item.task,open=!t.archived&&!['Terminada','Cancelada'].includes(t.status),movable=editable&&open&&(!inWeek||!item.commitment);
+  const project=projects.find(p=>p.id===t.projectId),areaIds=[...(project?.areaIds??[]),...(project?.areaId?[project.areaId]:[])];
+  const areaKeys=[...new Set<string>([...areaIds.map(managementAreaKey),...(project?.areaKeys??[])])];
+  const projectAreas=areaKeys.map(key=>({key,name:areas.find(area=>managementAreaKey(area.id)===key)?.name??projectAreaLabels[key]})).filter(area=>!!area.name);
   return <article key={t.id} className={'weekly-task-row'+(dragged===t.id?' is-dragging':'')+(pending===t.id?' is-saving':'')} draggable={movable&&!pending} aria-label={t.title} onDragStart={event=>{event.dataTransfer.setData(dragType,t.id);event.dataTransfer.effectAllowed='move';setDragged(t.id);setError('');}} onDragEnd={()=>{setDragged('');setTarget(null);}}>
    {movable&&<span className="weekly-task-grip" aria-hidden="true"><GripVertical size={18}/></span>}
-   <div className="weekly-task-main"><button type="button" className="weekly-task-title" onClick={()=>onOpen(t)}>{t.title}</button><div className="weekly-task-meta">{t.code&&<span>{t.code}</span>}{item.priority&&<span className="weekly-task-priority"><Flag size={12} aria-hidden="true"/>Prioritaria</span>}{t.dueDate&&<span>{formatDate(t.dueDate)}</span>}{item.commitment?.result!==undefined&&item.commitment.result!==t.title&&<span className="weekly-task-result">{item.commitment.result}</span>}</div></div>
+   <div className="weekly-task-main"><button type="button" className="weekly-task-title" onClick={()=>onOpen(t)}>{t.title}</button><div className="weekly-task-meta"><span className="weekly-task-project">{project?.title??(t.projectId?'Proyecto no disponible':'Sin proyecto')}</span>{projectAreas.length>0&&<span className="weekly-task-areas" role="list" aria-label="Áreas del proyecto">{projectAreas.map(area=><span className="weekly-task-area" role="listitem" key={area.key}>{area.name}</span>)}</span>}{item.priority&&<span className="weekly-task-priority"><Flag size={12} aria-hidden="true"/>Prioritaria</span>}{t.dueDate&&<span>{formatDate(t.dueDate)}</span>}{item.commitment?.result!==undefined&&item.commitment.result!==t.title&&<span className="weekly-task-result">{item.commitment.result}</span>}</div></div>
    <div className="weekly-task-controls">{status(t.status)}{inWeek&&(editable||item.commitment)&&<button type="button" className="icon" aria-label={(item.commitment?'Ver avance semanal de ':'Detallar avance semanal de ')+t.title} title={item.commitment?'Ver avance semanal':'Detallar avance semanal'} onClick={()=>onAdvance(item)}><CalendarDays size={16}/></button>}{movable&&<button type="button" className="icon weekly-task-move" disabled={!!pending} aria-label={(inWeek?'Quitar de esta semana: ':'Agregar a esta semana: ')+t.title} title={inWeek?'Quitar de esta semana':'Agregar a esta semana'} onClick={()=>void move(item,!inWeek)}>{inWeek?<ArrowDown size={17}/>:<ArrowUp size={17}/>}</button>}<button type="button" className="icon" aria-label={'Abrir tarea: '+t.title} title="Abrir tarea" onClick={()=>onOpen(t)}><ArrowUpRight size={16}/></button></div>
   </article>;
  }

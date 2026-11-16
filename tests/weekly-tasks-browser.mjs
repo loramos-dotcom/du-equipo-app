@@ -8,9 +8,13 @@ import {api} from '../server/api.ts';
 
 const origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4361',now=new Date(),week=weekStart(dateInBA(now));
 let state=institutionalState('weekly-board',{'persona01':'persona01@example.edu','persona05':'persona05@example.edu'},'persona01@example.edu',now);
+const localProjectTitle='Proyecto propio de planificación del equipo',sharedProjectTitle='Proyecto compartido de planificación y seguimiento para coordinar entregas entre varias áreas del equipo';
+state.data.projects.push({id:'weekly-project',version:1,title:localProjectTitle,outcome:'Completar las entregas de prueba',status:'Activo',leadId:'persona05',members:['persona05','persona01'],areaId:'ssgad',areaIds:['ssgad','ssgda','ssgad'],areaKeys:['gestion_administrativa']});
+state.data.projectLinks.push({id:'weekly-project-link',sourceId:'weekly-shared',version:1,leadId:'persona05',members:['persona05'],areaIds:['sspie'],areaId:'sspie',intervention:'acompaña',areaPriorities:{}});
+let externalProjects=[{id:'gestion:weekly-shared',sourceId:'weekly-shared',version:1,title:sharedProjectTitle,outcome:'Coordinar entregas de prueba',status:'Activo',areaKeys:['tecnologia','aprendizaje','tecnologia','transversales']}];
 state.data.tasks=[
- {id:'priority',version:1,title:'Preparar informe de prueba',code:'T101',ownerId:'persona05',status:'Pendiente',panelPriority:true,priority:'Media'},
- {id:'normal',version:1,title:'Revisar documento de prueba',code:'T102',ownerId:'persona05',status:'En curso',panelPriority:false,priority:'Media'},
+ {id:'priority',version:1,title:'Preparar informe de prueba',code:'T101',ownerId:'persona05',projectId:'weekly-project',status:'Pendiente',panelPriority:true,priority:'Media'},
+ {id:'normal',version:1,title:'Revisar documento de prueba',code:'T102',ownerId:'persona05',projectId:'gestion:weekly-shared',areaIds:['ueicee'],status:'En curso',panelPriority:false,priority:'Media'},
  {id:'other',version:1,title:'Tarea de otra persona',code:'T103',ownerId:'persona01',status:'Pendiente',panelPriority:true}
 ];
 let rejectNext=false;
@@ -23,7 +27,7 @@ await context.route(origin+'/api/**',async route=>{
  if(path.startsWith('/api/gestion/'))return route.fulfill({json:{connected:true,issues:[],steps:[],updates:[],priorities:[]}});
  if(path.startsWith('/api/calendar/'))return route.fulfill({json:{configured:false,connected:false,events:[],connections:[]}});
  if(path==='/api/command'&&rejectNext&&request.postDataJSON()?.kind==='select_week_task'){rejectNext=false;return route.fulfill({status:409,json:{error:'El plan cambió. Actualizá la semana antes de mover la tarea.'}});}
- const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,'weekly-board',{mode:'team',identity:{id:'verified-persona05',email:'persona05@example.edu',provider:'google',verified:true}});
+ const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,'weekly-board',{mode:'team',identity:{id:'verified-persona05',email:'persona05@example.edu',provider:'google',verified:true},externalProjects});
  await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
 });
 const upper=()=>page.getByRole('region',{name:'Tareas de la semana',exact:true}),lower=()=>page.getByRole('region',{name:'Resto de tareas',exact:true});
@@ -38,11 +42,17 @@ try{
   assert.equal(await page.getByText('Planificar un avance',{exact:true}).count(),0);
   await page.screenshot({path:'test-results/weekly-desktop.png',fullPage:true});
  });
+ await check('Cada tarea muestra el proyecto y todas sus áreas sin repetirlas ni usar las áreas de la tarea',async()=>{
+  const own=task(upper(),'Preparar informe de prueba'),shared=task(lower(),'Revisar documento de prueba');
+  assert.equal(await own.locator('.weekly-task-project').innerText(),localProjectTitle);assert.deepEqual(await own.getByRole('list',{name:'Áreas del proyecto',exact:true}).getByRole('listitem').allTextContents(),['SSGAD','SSGDA']);
+  assert.equal(await shared.locator('.weekly-task-project').innerText(),sharedProjectTitle);assert.deepEqual((await shared.getByRole('list',{name:'Áreas del proyecto',exact:true}).getByRole('listitem').allTextContents()).sort(),['SSGDA','SSPIE','SSTEDU','Transversales'].sort());
+  assert.equal(await own.locator('.weekly-task-meta').getByText('T101',{exact:true}).count(),0);assert.equal(await shared.locator('.weekly-task-meta').getByText('T102',{exact:true}).count(),0);assert.equal(await shared.locator('.weekly-task-area').getByText('UEICEE',{exact:true}).count(),0);
+ });
  await check('Arrastrar desde el resto guarda la selección y la recupera al recargar',async()=>{
   await task(lower(),'Revisar documento de prueba').dragTo(upper());await task(upper(),'Revisar documento de prueba').waitFor();await settle();
   assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.normal,true);
   assert.equal(state.data.tasks.find(t=>t.id==='normal').panelPriority,false);
-  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();
+  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await task(upper(),'Revisar documento de prueba').locator('.weekly-task-project').innerText(),sharedProjectTitle);
  });
  await check('Devolver una prioridad al resto afecta solo a esta semana',async()=>{
   await task(upper(),'Preparar informe de prueba').dragTo(lower());await task(lower(),'Preparar informe de prueba').waitFor();await settle();
@@ -63,7 +73,7 @@ try{
  await check('En móvil se puede mover con un toque y no hay desborde horizontal',async()=>{
   await page.setViewportSize({width:390,height:844});await upper().getByRole('button',{name:'Quitar de esta semana: Revisar documento de prueba',exact:true}).click();await task(lower(),'Revisar documento de prueba').waitFor();await settle();
   await lower().getByRole('button',{name:'Agregar a esta semana: Revisar documento de prueba',exact:true}).click();await task(upper(),'Revisar documento de prueba').waitFor();await settle();
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));await page.screenshot({path:'test-results/weekly-mobile.png',fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await task(upper(),'Revisar documento de prueba').evaluate(row=>row.scrollWidth<=row.clientWidth));await page.screenshot({path:'test-results/weekly-mobile.png',fullPage:true});
  });
  await check('Los planes de otras personas quedan de solo lectura en el tablero',async()=>{
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');await task(upper(),'Tarea de otra persona').waitFor();
@@ -71,9 +81,11 @@ try{
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
  });
  await check('Una semana cerrada conserva sus tareas, títulos y bloquea el arrastre',async()=>{
-  state=execute(state,'persona01',{id:'close-browser',kind:'close_week',expectedVersion:state.data.weeks.find(w=>w.id===week).version,data:{weekId:week}},now).state;
+  state=execute({...state,externalProjects},'persona01',{id:'close-browser',kind:'close_week',expectedVersion:state.data.weeks.find(w=>w.id===week).version,data:{weekId:week}},now).state;
   state.data.tasks.find(t=>t.id==='normal').title='Título nuevo fuera del cierre';
+  state.data.projects.find(p=>p.id==='weekly-project').title='Nombre actual del proyecto';state.data.areas.find(a=>a.id==='ssgad').name='Área renombrada después del cierre';externalProjects=externalProjects.map(p=>({...p,title:'Nombre actual del proyecto compartido',areaKeys:['ueicee']}));
   await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await lower().count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);assert.equal(await upper().getByRole('button',{name:/Detallar avance semanal/}).count(),0);
+  assert.equal(await task(upper(),'Preparar informe de prueba').locator('.weekly-task-project').innerText(),localProjectTitle);assert.equal(await task(upper(),'Revisar documento de prueba').locator('.weekly-task-project').innerText(),sharedProjectTitle);assert.deepEqual(await task(upper(),'Preparar informe de prueba').getByRole('list',{name:'Áreas del proyecto',exact:true}).getByRole('listitem').allTextContents(),['SSGAD','SSGDA']);
  });
  await check('El acceso pendiente de Crear proyecto abre su formulario desde Inicio',async()=>{
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Mi panel',exact:true}).click();await page.locator('.workspace-create-actions').getByRole('button',{name:'Crear proyecto',exact:true}).click();

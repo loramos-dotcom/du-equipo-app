@@ -15,6 +15,12 @@
 .weekly-task-title{display:block;text-align:left;font-weight:650;font-size:14px;line-height:1.5;padding:0;overflow-wrap:anywhere}
 .weekly-task-title:hover{text-decoration:underline}
 .weekly-task-meta{display:flex;gap:5px 12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:10px;margin-top:5px}
+.weekly-task-project{font-size:11px;line-height:1.5;overflow-wrap:anywhere;max-width:100%}
+.weekly-task-areas{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;max-width:100%}
+.weekly-task-area{display:inline-flex;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--soft);color:var(--teal);font-size:10px;line-height:1.4;overflow-wrap:anywhere;max-width:100%}
+.weekly-task-project{font-size:11px;line-height:1.5;overflow-wrap:anywhere;max-width:100%}
+.weekly-task-areas{display:inline-flex;flex-wrap:wrap;gap:4px;max-width:100%}
+.weekly-task-area{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:2px 6px;background:var(--soft);color:var(--teal);font-size:10px;line-height:1.4;overflow-wrap:anywhere;max-width:100%}
 .weekly-task-priority{display:inline-flex;gap:4px;align-items:center;color:var(--teal)}
 .weekly-task-result{flex-basis:100%;font-size:11px;line-height:1.4}
 .weekly-task-controls{display:flex;align-items:center;gap:4px;flex-shrink:0}
