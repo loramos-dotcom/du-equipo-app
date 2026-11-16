@@ -88,14 +88,14 @@ try{
   assert.equal(await buttons.count(),10);
   const colors=await buttons.evaluateAll(elements=>elements.map(el=>getComputedStyle(el).getPropertyValue('--area-bg').trim()));
   assert.equal(new Set(colors).size,10);
-  const filter=areaButtons().getByRole('button',{name:'SSGAD',exact:true});
+  const filter=areaButtons().getByRole('button',{name:'Universidad',exact:true});
   const theme=await filter.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim());
   const row=manager().getByRole('row').filter({has:page.getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true})});
-  const chip=row.locator('.area-chip[data-area="gestion_administrativa"]');
+  const chip=row.locator('.area-chip[data-area="universidad"]');
   assert.equal(await chip.count(),1);assert.equal(await chip.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim()),theme);
   assert.equal(await row.locator('.badge[data-area]').count(),0);
   await openProject('Proyecto sin favorito');
-  const summary=detail().locator('.project-sheet-grid .area-chip[data-area="gestion_administrativa"]');
+  const summary=detail().locator('.project-sheet-grid .area-chip[data-area="universidad"]');
   assert.equal(await summary.count(),1);assert.equal(await summary.evaluate(el=>getComputedStyle(el).getPropertyValue('--area-ink').trim()),theme);
   await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();
   await filter.click();assert.equal(await filter.getAttribute('aria-pressed'),'true');
