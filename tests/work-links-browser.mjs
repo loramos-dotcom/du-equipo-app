@@ -28,7 +28,7 @@ try{
  await page.goto(origin+'/#Inicio');await page.waitForLoadState('networkidle');
  await check('Las tareas anteriores se muestran al mismo nivel sin acciones ni filtros de subtareas',async()=>{
   await page.locator('.task-name').filter({hasText:originalChild.title}).waitFor();assert.equal(await page.getByRole('button',{name:/subtarea/i}).count(),0);
-  await page.getByText('Más filtros',{exact:true}).click();assert.equal(await page.getByRole('option',{name:'Subtareas',exact:true}).count(),0);assert.equal(await page.getByRole('option',{name:'Trabajos raíz',exact:true}).count(),0);await page.getByText('Más filtros',{exact:true}).click();
+  await page.getByRole('button',{name:'Más filtros',exact:true}).click();assert.equal(await page.getByRole('option',{name:'Subtareas',exact:true}).count(),0);assert.equal(await page.getByRole('option',{name:'Trabajos raíz',exact:true}).count(),0);await page.getByRole('button',{name:'Más filtros',exact:true}).click();
   await open(originalChild.title);await detail().getByText(originalChild.description,{exact:true}).waitFor();assert.equal(await detail().getByRole('button',{name:/subtarea/i}).count(),0);
   await detail().getByRole('button',{name:'Editar ficha',exact:true}).click();assert.equal(await form().getByRole('combobox',{name:'Tarea de la que depende',exact:true}).count(),0);assert.equal(await form().getByRole('combobox',{name:'Proyecto o línea',exact:true}).count(),1);assert.equal(await form().getByLabel('Descripción',{exact:true}).inputValue(),originalChild.description);
   await form().getByRole('button',{name:'Cancelar',exact:true}).click();await detail().getByRole('button',{name:'Cerrar detalle',exact:true}).click();
