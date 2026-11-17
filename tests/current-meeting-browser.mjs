@@ -67,7 +67,8 @@ try{
   assert.equal(await page.getByRole('button',{name:'Planificar tarea',exact:true}).count(),0);assert.equal(JSON.stringify(state),completed);assert.equal(commands.length,count);assert.notEqual(before,completed);await person().selectOption('persona01');
  });
  await check('Los accesos a Mi semana conservan la persona y el período elegidos',async()=>{
-  await person().selectOption('persona05');await page.getByRole('button',{name:'Ver próxima semana',exact:true}).click();await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).inputValue(),'persona05');assert.equal(await selector().locator('strong').textContent(),rangeLabel(next));
+  await page.getByRole('button',{name:'Ver esta semana',exact:true}).click();const done=page.locator('.weekly-selected').getByRole('article',{name:'Entrega completada sin planificación',exact:true});await done.waitFor();await done.getByText('Terminada',{exact:true}).waitFor();assert.equal(await done.getByRole('button',{name:/Detallar avance semanal|Quitar de esta semana/}).count(),0);
+  await page.locator('.sidebar').getByRole('button',{name:'Reunión semanal',exact:true}).click();await person().selectOption('persona05');await page.getByRole('button',{name:'Ver próxima semana',exact:true}).click();await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).inputValue(),'persona05');assert.equal(await selector().locator('strong').textContent(),rangeLabel(next));
   await page.locator('.sidebar').getByRole('button',{name:'Reunión semanal',exact:true}).click();await periods(current,next);assert.equal(await person().inputValue(),'persona01');
  });
  await check('La selección histórica se conserva al actualizar y el acceso lateral vuelve a esta semana',async()=>{
