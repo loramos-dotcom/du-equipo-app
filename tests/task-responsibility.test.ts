@@ -5,9 +5,9 @@ import {execute} from '../shared/domain.ts';
 import {taskExecution} from '../shared/task-assignment.ts';
 import {stateDelta,isTaskContentCommand} from '../server/relational.ts';
 import {api} from '../server/api.ts';
-import type {State,Row} from '../shared/model.ts';
+import type {State,Row,Collection} from '../shared/model.ts';
 const now=new Date('2026-10-21T15:00:00Z');
-function command(state:State,kind:string,data:Record<string,any>,entity?:any,id?:string,actor='persona05'){
+function command(state:State,kind:string,data:Record<string,any>,entity?:Collection,id?:string,actor='persona05'){
  return execute(state,actor,{id:crypto.randomUUID(),kind,data,entity,entityId:id,expectedVersion:id?state.data[entity??'tasks'].find((row:Row)=>row.id===id)?.version:undefined},now);
 }
 function create(state=seed(now),extra:Record<string,any>={}){
@@ -50,6 +50,12 @@ test('Cambiar quién ejecuta exige versión vigente, motivo y resolver antes una
  assert.throws(()=>execute(made.state,'persona05',{id:crypto.randomUUID(),kind:'update',entity:'tasks',entityId:made.row.id,expectedVersion:999,data:{executionType:'area',executionAreaId:'sstedu',reason:'Cambio'}},now),/actualiz|cambi|versión/i);
  const validating=structuredClone(made.state);validating.data.tasks.find(row=>row.id===made.row.id)!.status='Para validar';
  assert.throws(()=>update(validating,made.row.id,{executionType:'area',executionAreaId:'sstedu'}),/En curso/);
+});
+test('Editar una tarea anterior en validación conserva la ejecución sin confirmar',()=>{
+ const state=seed(now);state.data.tasks.find(task=>task.id==='t1')!.status='Para validar';
+ const next=update(state,'t1',{description:'Detalle actualizado',executionType:'unspecified',executionAreaId:null});
+ assert.deepEqual(taskExecution(next.data.tasks.find(task=>task.id==='t1')!),{type:'unspecified',areaId:null});
+ assert.throws(()=>update(next,'t1',{executionType:'area',executionAreaId:'sstedu'}),/En curso/);
 });
 test('Las tareas creadas desde una decisión y una recurrencia conservan la ejecución explícita',()=>{
  const state=seed(now),decision=command(state,'record_decision',{meetingId:'m1',text:'Revisar entrega de prueba',ownerId:'persona05',followUpDate:'2026-10-23',action:'create_task',taskTitle:'Entrega acordada',projectId:'p1',executionType:'area',executionAreaId:'sstedu'},undefined,undefined,'persona01').state;
