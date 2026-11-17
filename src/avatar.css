@@ -1,3 +1,7 @@
 .person-avatar{border:1px solid;vertical-align:middle;flex-shrink:0}
-.project-sheet-lead{display:inline-flex;align-items:center;gap:7px}
-.project-sheet-people>div>span{display:flex;align-items:center;gap:8px}
+.person-avatar-group{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:100%;white-space:normal}
+.person-avatar-group>[role="listitem"]{display:inline-flex}
+.project-sheet-lead{display:inline-flex;align-items:center;flex-wrap:wrap;gap:7px;min-width:0}
+.du-shared-projects .projects-grid .project-card{height:auto;min-height:410px}
+.du-shared-projects .projects-grid .project-card .card-footer{flex:0 0 auto;min-height:60px}
+.du-shared-projects .project-card .card-footer .person>.person-avatar-group:last-child{max-width:none;overflow:visible;text-overflow:clip;white-space:normal;min-width:0}

@@ -310,5 +310,17 @@ try{
   await page.locator('.sidebar').getByRole('button',{name:'Mi panel',exact:true}).click();await page.locator('.panel-task-row').first().waitFor();assert.doesNotMatch((await page.locator('.panel-task-row').allInnerTexts()).join(' '),/\bT\d+\b/);
  });
 
+
+ await check('Todos los referentes quedan visibles en tabla, tarjetas y ambas fichas sin +N ni desplegables',async()=>{
+  await page.locator('.sidebar').getByRole('button',{name:'Proyectos',exact:true}).click();await manager().getByRole('heading',{name:'Proyectos',exact:true}).waitFor();await reset();await scope().getByRole('button',{name:'Todos los proyectos',exact:true}).click();
+  const link=state.data.projectLinks.find(link=>link.sourceId==='alpha');link.members=state.data.members.filter(person=>person.active).map(person=>person.id);link.version++;state.revision++;await page.getByRole('button',{name:'Actualizar datos del equipo',exact:true}).click();const ids=[...new Set([link.leadId,...link.members].filter(Boolean))],expected=ids.map(id=>state.data.members.find(person=>person.id===id).name).sort();
+  assert.ok(expected.length>=3);
+  async function visiblePeople(container){const group=container.getByRole('list',{name:'Referentes DU',exact:true});for(const name of expected)await group.getByRole('img',{name,exact:true}).waitFor();assert.deepEqual((await group.getByRole('img').evaluateAll(elements=>elements.map(element=>element.getAttribute('aria-label')))).sort(),expected);}
+  const row=manager().getByRole('row').filter({has:page.getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true})});await visiblePeople(row);assert.equal(await row.locator('.du-list-people small').count(),0);
+  await openProject('Proyecto sin favorito');await visiblePeople(detail().locator('.project-sheet-lead'));assert.equal(await detail().locator('.project-sheet-people').count(),0);await page.screenshot({path:'test-results/portfolio-all-people-shared.png',fullPage:true});
+  await detail().getByRole('tab',{name:'Tareas',exact:true}).click();const sheet=page.locator('dialog.project-detail[open]');await sheet.getByRole('heading',{name:'Tareas de seguimiento DU',exact:true}).waitFor();await visiblePeople(sheet.locator('.project-sheet-lead'));assert.equal(await sheet.locator('.project-sheet-people').count(),0);await sheet.getByRole('button',{name:'Cerrar detalle',exact:true}).click();await sheet.waitFor({state:'hidden'});
+  await filters();await manager().getByRole('button',{name:'Vista tarjetas',exact:true}).click();const card=manager().getByRole('button',{name:'Abrir Proyecto sin favorito',exact:true});await visiblePeople(card);await page.setViewportSize({width:390,height:844});assert.ok(await card.evaluate(element=>{const bounds=element.getBoundingClientRect();return element.scrollWidth<=element.clientWidth+1&&Array.from(element.querySelectorAll('.person-avatar')).every(avatar=>{const box=avatar.getBoundingClientRect();return box.right<=bounds.right+1&&box.bottom<=bounds.bottom+1;});}));await page.screenshot({path:'test-results/portfolio-all-people-mobile.png',fullPage:true});
+ });
+
  assert.deepEqual(errors,[]);await writeFile('test-results/portfolio-browser.json',JSON.stringify({passed,errors},null,2));console.log('PASS '+passed.length+' recorridos de Proyectos');
 }catch(error){await page.screenshot({path:'test-results/portfolio-failure.png',fullPage:true});console.log(await page.locator('main').innerText());throw error;}finally{await browser.close();}

@@ -14,3 +14,8 @@ export default function Avatar({member,name,small=false,className=''}:{member?:P
  const {members,themes}=useContext(PeopleContext),person=members.find(person=>member?.id?person.id===member.id:person.name===(name??member?.name))??member??{name},label=person.name||'Sin asignar';
  return <span className={'avatar person-avatar '+(small?'small ':'')+className} style={personColors(person,themes)} title={label} role="img" aria-label={label} data-person={person.id||person.name||undefined}>{person.name?avatarInitials(person.name):'—'}</span>;
 }
+
+export function AvatarGroup({names,label='Referentes DU'}:{names:(string|undefined)[];label?:string}){
+ const people=[...new Set(names.filter((name):name is string=>!!name))];
+ return people.length?<span className="person-avatar-group" role="list" aria-label={label}>{people.map(name=><span role="listitem" key={name}><Avatar name={name} small/></span>)}</span>:<span className="muted-text">Sin asignar</span>;
+}

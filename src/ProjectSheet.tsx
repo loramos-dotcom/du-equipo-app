@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import Avatar from './Avatar';
+import {AvatarGroup} from './Avatar';
 import type {Row} from '../shared/model';
 import {RichText} from './gestion/components/RichText';
 import './project-sheet.css';
@@ -11,8 +11,8 @@ export type ProjectSheetContext={fields:ProjectField[];status:'active'|'pending'
 
 export function ProjectHeading({title,kind='project',status,leadName,members=[],areas=[],breadcrumb,actions}:{title:string;kind?:'project'|'subproject';status:ProjectSheetContext['status'];leadName?:string;members?:string[];areas?:string[];breadcrumb?:ReactNode;actions:ReactNode}){
  const labels={active:'En curso',pending:'Pendiente',alert:'Alerta/Bloqueo',finished:'Finalizado'},tones={active:'blue',pending:'amber',alert:'red',finished:'green'};
- const lead=leadName||members[0]||'Sin asignar',others=[...new Set(members)].filter(name=>name!==lead);
- return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><div className="project-sheet-meta"><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span><span className="project-sheet-lead"><span>Referente DU:</span> {lead==='Sin asignar'?<strong>{lead}</strong>:<Avatar name={lead} small/>}</span>{others.length>0&&<details className="project-sheet-people" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))event.currentTarget.open=false;}} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Otras personas asignadas">+{others.length} {others.length===1?'persona':'personas'}</summary><div>{others.map(name=><span key={name}><Avatar name={name} small/>{name}</span>)}</div></details>}</div>{areas.length>0&&<div className="project-sheet-assignment"><AreaTags aria-label="Áreas de seguimiento" areas={areas}/></div>}</div><div className="project-sheet-actions">{actions}</div></>;
+ const people=[...new Set([leadName,...members].filter((name):name is string=>!!name))];
+ return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><div className="project-sheet-meta"><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span><span className="project-sheet-lead"><span>{people.length>1?'Referentes DU:':'Referente DU:'}</span><AvatarGroup names={people}/></span></div>{areas.length>0&&<div className="project-sheet-assignment"><AreaTags aria-label="Áreas de seguimiento" areas={areas}/></div>}</div><div className="project-sheet-actions">{actions}</div></>;
 }
 
 export function ProjectTabs({selected,onSelect,extra=[],tasks=true}:{selected:string;onSelect:(tab:string)=>void;extra?:string[];tasks?:boolean}){
