@@ -1,4 +1,11 @@
-import type {Project} from './domain/types';
+import type {Project,ProjectStatus} from './domain/types';
+
+export const openProjectStatuses:ProjectStatus[]=['active','pending','alert'];
+export const allProjectStatuses:ProjectStatus[]=[...openProjectStatuses,'finished'];
+export const isOpenProjectScope=(statuses:ProjectStatus[])=>statuses.length===3&&openProjectStatuses.every(status=>statuses.includes(status));
+// Keep open descendants visible when their parent has already finished.
+export function unfinishedProjectTree(projects:Project[],statusOf:(project:Project)=>string):Project[]{return projects.flatMap(project=>{const children=unfinishedProjectTree(project.children,statusOf);return statusOf(project)==='finished'?children:[{...project,children}];});}
+
 
 export function projectFilterAreaKeys(project:Pick<Project,'areaKey'|'areaKeys'>,assignedAreaKeys:string[]=[]):string[]{
  return [...new Set([project.areaKey,...project.areaKeys,...assignedAreaKeys].filter(Boolean))];
@@ -16,7 +23,7 @@ export function priorityFirstProjects(projects:Project[]):Project[]{
 export const projectAreaLabels:Record<string,string>={gestion_administrativa:'SSGAD',aprendizaje:'SSGDA',tecnologia:'SSTEDU',planeamiento:'SSPIE',privada:'Privada',agencia:'Agencia',ueicee:'UEICEE',universidad:'Universidad',comu_prensa:'Comunicación',transversales:'Transversales'};
 
 export type DuPortfolio={
- overlayOpen?:boolean;
+ overlayOpen?:boolean;dismissRevision?:number;
  localProjects?:Project[];onOpenLocal?:(id:string)=>void;onCreateLocal?:()=>void;
  onOpenWork?:(id:string,section:string,context:import('../ProjectSheet').ProjectSheetContext)=>void;
  followedAreaKeys:string[];coordinator:boolean;directProjectIds:string[];

@@ -9,7 +9,7 @@ export function taskDescription(row:Row){
  const details=[['storyRole','Destinatario'],['storyGoal','Resultado esperado'],['storyBenefit','Propósito'],['acceptanceCriteria','Criterios de aceptación']].flatMap(([key,label])=>typeof row[key]==='string'&&row[key].trim()?[label+': '+row[key]]:[]).filter(text=>!description.includes(text));
  return [description,...details].filter(Boolean).join('\n\n');
 }
-export const workName=(row:Row)=>`${row.code??''} · ${row.title}`.replace(/^ · /,'');
+export const workName=(row:Row)=>row.title as string;
 export const workFieldLabels:Record<string,string>={workType:'Clasificación anterior',storyRole:'Destinatario anterior',storyGoal:'Resultado esperado anterior',storyBenefit:'Propósito anterior',acceptanceCriteria:'Criterios de aceptación',parentTaskId:'Trabajo padre',dependsOnIds:'Depende de',deletedParentTitle:'Padre eliminado',removedDependencyTitles:'Dependencias eliminadas'};
 const live=(rows:Row[])=>rows.filter(row=>!row.deletedAt);
 export function workChildren(rows:Row[],id:string){return live(rows).filter(row=>row.parentTaskId===id);}
