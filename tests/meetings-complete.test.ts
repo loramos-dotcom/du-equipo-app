@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {seed} from '../shared/seed.ts';
 import {execute,minutesText} from '../shared/domain.ts';
 import {compareVersions} from '../shared/versions.ts';
+import {meetingWeekWork,meetingWorkRows} from '../shared/meetings.ts';
 import type {State} from '../shared/model.ts';
 const now=new Date('2026-10-21T13:00:00Z');
 function call(s:State,kind:string,data:any,entity?:any,entityId?:string,expectedVersion?:number,actor='persona01'){return execute(s,actor,{id:crypto.randomUUID(),kind,data,entity,entityId,expectedVersion},now);}
@@ -53,4 +54,34 @@ test('La reunión conserva la revisión histórica de una semana cerrada aunque 
  s.snapshots.push({id:'closed-week',kind:'week',targetId:week.id,version:1,at:now.toISOString(),actorId:'persona01',reason:'',payload:structuredClone({week,commitments:s.data.commitments,tasks:s.data.tasks,members:s.data.members})});week.status='Cerrada';week.closeVersion=1;s.data.commitments=[];s.data.tasks=[];
  const closed=call(s,'close_meeting',{minutes:'Revisión de la semana cerrada'},undefined,m.id,m.version).state;
  const review=closed.snapshots.at(-1)!.payload.workReview;assert.ok(review.commitments.some((c:any)=>c.id==='c1'));assert.equal(review.tasks.find((t:any)=>t.id==='t1').title,'Conciliar cifras para la presentación');
+});
+
+test('La reunión reúne tareas seleccionadas y completadas sin exigir ni crear un compromiso',()=>{
+ const s=seed(now),week='2026-10-19';s.data.commitments=[];s.data.plans=[];
+ s.data.tasks=[
+  {id:'done',version:1,title:'Entrega terminada',ownerId:'persona05',status:'Terminada',completedAt:now.toISOString(),panelPriority:false},
+  {id:'planned',version:1,title:'Entrega elegida',ownerId:'persona05',status:'Pendiente'},
+  {id:'priority',version:1,title:'Entrega prioritaria',ownerId:'persona06',status:'Pendiente',panelPriority:true}
+ ];
+ s.data.plans.push({id:'p',version:1,weekId:week,ownerId:'persona05',taskSelections:{done:false,planned:true}});
+ const before=structuredClone(s),work=meetingWeekWork(s,week,'2026-10-21');
+ assert.deepEqual(meetingWorkRows(work,'persona05').map(row=>row.task?.id).sort(),['done','planned']);
+ assert.deepEqual(meetingWorkRows(work,'persona06').map(row=>row.task?.id),['priority']);
+ assert.equal(meetingWorkRows(work).length,3);assert.deepEqual(s,before);
+ s.data.commitments.push({id:'advance',version:1,taskId:'done',ownerId:'persona05',weekId:week,result:'Validar la entrega',isPriority:true});
+ const rows=meetingWorkRows(meetingWeekWork(s,week,'2026-10-21'),'persona05');
+ assert.equal(rows.filter(row=>row.task?.id==='done').length,1);assert.equal(rows.find(row=>row.task?.id==='done')!.commitment?.id,'advance');
+});
+test('Cerrar la reunión conserva también las completadas sin plan y no toma datos actuales para un período cerrado',()=>{
+ let s=seed(now);s.data.commitments=[];s.data.plans=[];s.data.tasks=[{id:'done',version:1,title:'Entrega original',ownerId:'persona05',status:'Terminada',completedAt:now.toISOString(),panelPriority:false}];
+ const meeting=s.data.meetings[0];s=call(s,'close_meeting',{minutes:'Revisión completa'},undefined,meeting.id,meeting.version).state;
+ const frozen=structuredClone(s.snapshots.at(-1)!.payload.workReview);assert.deepEqual(frozen.weekTaskIds.persona05,['done']);
+ s.data.tasks[0].title='Título nuevo';s.data.tasks[0].ownerId='persona06';
+ assert.equal(meetingWorkRows(frozen,'persona05')[0].task?.title,'Entrega original');assert.equal(meetingWorkRows(frozen,'persona06').length,0);
+ const week=s.data.weeks.find(row=>row.id===meeting.weekId)!;week.status='Cerrada';week.closeVersion=99;
+ const missing=meetingWeekWork(s,meeting.weekId,'2026-10-21');assert.equal(missing.tasks.length,0);assert.equal(meetingWorkRows(missing).length,0);
+});
+test('Las reuniones cerradas anteriores conservan sólo las filas de sus compromisos',()=>{
+ const legacy={closed:true,commitments:[{id:'c',version:1,taskId:'historic',ownerId:'persona05',result:'Avance original'}],tasks:[{id:'historic',version:1,title:'Título conservado',ownerId:'persona05'},{id:'dependency',version:1,title:'Dependencia conservada',ownerId:'persona05'}]};
+ assert.equal(meetingWorkRows(legacy).length,1);assert.equal(meetingWorkRows(legacy)[0].task?.title,'Título conservado');
 });

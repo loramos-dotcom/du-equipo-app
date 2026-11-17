@@ -61,7 +61,7 @@ test('Confirmar y cerrar conserva las tareas de la semana, aunque luego cambien 
  s.data.tasks=[];assert.deepEqual(weeklyTasks(s,week,owner,today),frozen);
 });
 test('Las semanas pasadas abiertas no incorporan prioridades de hoy y las versiones antiguas solo muestran sus tareas conservadas',()=>{
- const s=fixture();assert.equal(weeklyTasks(s,'2026-11-02',owner,today).selected.length,0);
+ const s=fixture();assert.deepEqual(weeklyTasks(s,'2026-11-02',owner,today).selected.map(row=>row.task.id),['done']);
  s.data.weeks.push({id:'2026-11-02',version:1,status:'Cerrada',closeVersion:1});
  s.snapshots.push({id:'old',kind:'week',targetId:'2026-11-02',version:1,actorId:'persona01',at:now.toISOString(),reason:'Cierre anterior',payload:{commitments:[{id:'legacy',taskId:'normal',ownerId:owner,weekId:'2026-11-02'}],tasks:[{id:'normal',version:1,title:'Título histórico',ownerId:owner,status:'En curso'}]}});
  assert.equal(weeklyTasks(s,'2026-11-02',owner,today).selected[0].task.title,'Título histórico');
@@ -70,4 +70,25 @@ test('Las tareas prioritarias terminadas esta semana siguen visibles para su rev
  const s=fixture(),task=s.data.tasks.find(t=>t.id==='priority')!;task.status='Terminada';task.completedAt='2026-11-15T15:00:00Z';
  assert.equal(weeklyTasks(s,week,owner,today).selected[0].task.id,'priority');
  assert.equal(weeklyTasks(s,'2026-11-16',owner,today).selected.length,0);
+});
+
+test('Toda tarea completada dentro de la semana se incluye aunque no fuera prioritaria o se hubiera retirado',()=>{
+ const s=fixture(),normal=s.data.tasks.find(task=>task.id==='normal')!;
+ normal.status='Terminada';normal.completedAt='2026-11-15T15:00:00Z';normal.panelPriority=false;
+ s.data.plans.push({id:'plan',version:1,weekId:week,ownerId:owner,taskSelections:{normal:false}});
+ const before=structuredClone(s);assert.equal(weeklyTasks(s,week,owner,today).selected.filter(row=>row.task.id==='normal').length,1);
+ normal.archived=true;assert.equal(weeklyTasks(s,week,owner,today).selected.filter(row=>row.task.id==='normal').length,1);
+ assert.deepEqual(s.data.plans,before.data.plans);assert.deepEqual(s.data.commitments,before.data.commitments);
+ assert.equal(weeklyTasks(s,'2026-11-16',owner,today).selected.some(row=>row.task.id==='normal'),false);
+});
+test('Las completadas usan el límite de lunes en Buenos Aires y conservan cada responsable',()=>{
+ const s=fixture();s.data.tasks=[
+  {id:'sunday',version:1,title:'Domingo',ownerId:owner,status:'Terminada',completedAt:'2026-11-09T02:59:59Z'},
+  {id:'monday',version:1,title:'Lunes',ownerId:owner,status:'Terminada',completedAt:'2026-11-09T03:00:00Z'},
+  {id:'last',version:1,title:'Último minuto',ownerId:owner,status:'Terminada',completedAt:'2026-11-16T02:59:59Z'},
+  {id:'next',version:1,title:'Semana siguiente',ownerId:owner,status:'Terminada',completedAt:'2026-11-16T03:00:00Z'},
+  {id:'other',version:1,title:'Otra persona',ownerId:'persona06',status:'Terminada',completedAt:'2026-11-10T15:00:00Z'}
+ ];
+ assert.deepEqual(weeklyTasks(s,week,owner,today).selected.map(row=>row.task.id).sort(),['last','monday']);
+ assert.deepEqual(weeklyTasks(s,week,'persona06',today).selected.map(row=>row.task.id),['other']);
 });

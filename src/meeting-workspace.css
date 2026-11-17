@@ -1,0 +1,14 @@
+.meeting-toolbar.meeting-week-toolbar>select{min-width:180px;width:auto;max-width:260px;margin-left:auto}
+.meeting-toolbar.meeting-week-toolbar>.btn{margin-left:0}
+.meeting-toolbar.meeting-week-toolbar .week-selector{flex-shrink:0}
+.meeting-record-picker{display:flex;align-items:center;gap:12px;margin:0 0 20px;font-size:11px;color:var(--muted)}
+.meeting-record-picker select{font-size:11px;max-width:100%;min-width:0}
+.meeting-task-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}
+.meeting-task-meta>.person{font-size:10px;margin-left:auto}
+.meeting-task-meta:empty{display:none}
+.meeting-task-meta .area-chip{font-size:10px}
+.meeting-planning-rows{margin:12px -24px 0}
+.meeting-planning-rows>.meeting-review-row:last-child{border-bottom:0}
+.meeting-review-row .text-button.meeting-task-title{font-weight:600;overflow-wrap:anywhere}
+.meeting-review-row>div>.meeting-task-advance{margin-top:6px;font-size:11px}
+@media(max-width:760px){.meeting-toolbar.meeting-week-toolbar>.week-selector{width:100%}.meeting-toolbar.meeting-week-toolbar>select{min-width:0;max-width:200px;width:auto;margin-left:auto}.meeting-toolbar.meeting-week-toolbar>.btn{margin-left:auto}.meeting-record-picker{flex-wrap:wrap}.meeting-record-picker select{width:100%}.meeting-planning-rows{margin-left:-20px;margin-right:-20px}.meeting-task-meta>.person{margin-left:0}}

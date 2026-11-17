@@ -22,7 +22,7 @@ export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateI
   const completed=task.status==='Terminada'&&task.completedAt&&dateInBA(new Date(task.completedAt))>=weekId&&dateInBA(new Date(task.completedAt))<addDays(weekId,7);
   const selected=Object.hasOwn(selections,task.id)?selections[task.id]===true:null;
   const automatic=weekId>=weekStart(today)&&priority&&(open||completed)&&!task.archived;
-  if(commitment||!task.archived&&(selected===true||selected!==false&&automatic))chosen.push({task,commitment,priority});
+  if(commitment||own&&completed||!task.archived&&(selected===true||selected!==false&&automatic))chosen.push({task,commitment,priority});
   else if(own&&open)rest.push({task,priority});
  }
  const sort=(a:WeekTask,b:WeekTask)=>Number(b.priority)-Number(a.priority)||(a.task.dueDate||'9999').localeCompare(b.task.dueDate||'9999')||a.task.title.localeCompare(b.task.title,'es');
