@@ -11,9 +11,11 @@ let state=institutionalState(workspace,emails,emails.persona01),identity={id:'ve
 state.data.projects=seed().data.projects.filter(project=>['p1','p5'].includes(project.id));
 state=execute(state,'persona05',{id:crypto.randomUUID(),kind:'create',entity:'tasks',data:{title:'Preparar informe de Universidad',projectId:'p1',ownerId:'persona05'} }).state;
 const store={load:async()=>structuredClone(state),create:async()=>{throw Error('No implicit workspace');},save:async(_key,revision,next)=>{if(state.revision!==revision)return false;state=structuredClone(next);return true;}};
+const taskCommands=[];
 const browser=await chromium.launch({headless:true}),context=await browser.newContext({viewport:{width:1360,height:1000}}),page=await context.newPage(),errors=[],passed=[];
 page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));await mkdir('test-results',{recursive:true});
 await context.route(origin+'/api/**',async route=>{const request=route.request(),path=new URL(request.url()).pathname;
+ if(path==='/api/command')taskCommands.push(request.postDataJSON());
  if(path.startsWith('/api/gestion/'))return route.fulfill({json:{connected:true,issues:[],steps:[],updates:[],priorities:[]}});
  if(path.startsWith('/api/calendar/'))return route.fulfill({json:{configured:false,connected:false,events:[],connections:[]}});
  const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,workspace,{mode:'team',identity});await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
@@ -119,6 +121,45 @@ try{
   await detail().getByRole('button',{name:'Editar ficha',exact:true}).click();assert.equal(await form().getByLabel('Quién ejecuta',{exact:true}).inputValue(),'unspecified');await form().getByRole('button',{name:'Cancelar',exact:true}).click();assert.deepEqual(state.data.tasks.find(task=>task.id===row.id),before);
  });
 
+
+ async function showTask(title){
+  await closeDetail();const search=page.getByRole('textbox',{name:'Buscar en DU Equipo',exact:true});await search.fill(title);await page.locator('.search-result-tasks').filter({hasText:title}).click();await detail().getByRole('heading',{name:title,exact:true}).waitFor();
+ }
+ function fixtureTask(title,extra={}){
+  const made=execute(state,'persona05',{id:crypto.randomUUID(),kind:'create',entity:'tasks',data:{title,ownerId:'persona05',projectId:'p1',...extra}});state=made.state;return state.data.tasks.find(row=>row.id===made.result.id);
+ }
+ async function refresh(){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/state');await page.getByRole('button',{name:'Actualizar datos del equipo',exact:true}).click();await response;}
+ await check('Finalizar exige confirmar; Cancelar y Escape conservan la tarea y no envían cambios',async()=>{
+  await create('Finalización con confirmación');await pick('Proyecto o línea','presupuestaria','Presentación presupuestaria');await save();
+  const row=state.data.tasks.at(-1),before=structuredClone(state),count=taskCommands.length,finish=detail().getByRole('button',{name:'Marcar como finalizada',exact:true});
+  await finish.click();await form().getByRole('heading',{name:'¿Estás seguro que querés marcar como finalizada esta tarea?',exact:true}).waitFor();assert.equal(await form().getByText(row.title,{exact:true}).count(),1);assert.equal(taskCommands.length,count);assert.equal(state.data.tasks.find(task=>task.id===row.id).status,'Pendiente');
+  await form().getByRole('button',{name:'Cancelar',exact:true}).click();await form().waitFor({state:'hidden'});assert.deepEqual(state,before);
+  await finish.click();await page.keyboard.press('Escape');await form().waitFor({state:'hidden'});assert.equal(taskCommands.length,count);assert.deepEqual(state,before);
+  await finish.click();await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().waitFor({state:'hidden'});await detail().locator('.detail-badges').getByText('Terminada',{exact:true}).waitFor();
+  const done=state.data.tasks.find(task=>task.id===row.id);assert.equal(done.status,'Terminada');assert.ok(done.completedAt);assert.equal(done.ownerId,row.ownerId);assert.equal(done.projectId,row.projectId);assert.equal(taskCommands.length,count+1);assert.equal(taskCommands.at(-1).kind,'transition_task');assert.equal(taskCommands.at(-1).data.status,'Terminada');assert.equal(await finish.count(),0);assert.deepEqual(state.snapshots,before.snapshots);
+ });
+ await check('Una dependencia pendiente o una versión desactualizada impiden finalizar sin guardar cambios parciales',async()=>{
+  const dependency=fixtureTask('Entrega previa para finalizar'),blocked=fixtureTask('Entrega con dependencia',{dependsOnIds:[dependency.id]});await refresh();await showTask(blocked.title);
+  await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).click();const before=structuredClone(state);await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().getByRole('alert').waitFor();assert.equal(state.data.tasks.find(task=>task.id===blocked.id).status,'Pendiente');assert.deepEqual(state,before);await form().getByRole('button',{name:'Cancelar',exact:true}).click();
+  const concurrent=fixtureTask('Entrega con edición concurrente');await refresh();await showTask(concurrent.title);await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).click();
+  state=execute(state,'persona05',{id:crypto.randomUUID(),kind:'update',entity:'tasks',entityId:concurrent.id,expectedVersion:concurrent.version,data:{description:'Se precisó el alcance durante la confirmación',reason:'Edición simultánea de prueba'}}).state;
+  const latest=structuredClone(state);await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().getByRole('alert').waitFor();assert.deepEqual(state,latest);await form().getByRole('button',{name:'Cancelar',exact:true}).click();
+ });
+ await check('La finalización conserva la evidencia obligatoria y queda disponible en móvil',async()=>{
+  const row=fixtureTask('Entrega con evidencia obligatoria',{requiresEvidence:true});await refresh();await showTask(row.title);await page.setViewportSize({width:390,height:844});
+  assert.ok(await detail().evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).click();const count=taskCommands.length;
+  await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();assert.equal(taskCommands.length,count);assert.equal(state.data.tasks.find(task=>task.id===row.id).status,'Pendiente');
+  await form().getByLabel('Enlace de evidencia',{exact:true}).fill('https://example.edu/entrega-final');await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().waitFor({state:'hidden'});
+  assert.equal(state.data.tasks.find(task=>task.id===row.id).status,'Terminada');assert.ok(state.data.tasks.find(task=>task.id===row.id).links.some(link=>link.url==='https://example.edu/entrega-final'));await page.setViewportSize({width:1360,height:1000});
+ });
+ await check('Las tareas con validación sólo se finalizan desde la entrega enviada y por quien puede aprobar',async()=>{
+  const row=fixtureTask('Entrega que necesita validación',{requiresValidation:true,validatorId:'persona01'});state=execute(state,'persona05',{id:crypto.randomUUID(),kind:'transition_task',entityId:row.id,expectedVersion:row.version,data:{status:'En curso',note:'Preparación iniciada'}}).state;await refresh();await showTask(row.title);
+  assert.equal(await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).count(),0);
+  const current=state.data.tasks.find(task=>task.id===row.id);state=execute(state,'persona05',{id:crypto.randomUUID(),kind:'transition_task',entityId:row.id,expectedVersion:current.version,data:{status:'Para validar',note:'Entrega preparada para aprobación'}}).state;await refresh();assert.equal(await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).count(),0);
+  identity={id:'verified-persona01',email:emails.persona01,provider:'google',verified:true};await page.reload();await page.waitForLoadState('networkidle');await showTask(row.title);await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).click();assert.equal(await form().getByLabel('Observación de validación',{exact:true}).getAttribute('required'),'');
+  await form().getByLabel('Observación de validación',{exact:true}).fill('Entrega revisada y aprobada');await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().waitFor({state:'hidden'});const approved=state.data.tasks.find(task=>task.id===row.id);assert.equal(approved.status,'Terminada');assert.equal(approved.validatedBy,'persona01');assert.ok(approved.validatedAt);
+  identity={id:'verified-persona06',email:emails.persona06,provider:'google',verified:true};await page.reload();await page.waitForLoadState('networkidle');await showTask('Entrega con edición concurrente');assert.equal(await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).count(),0);
+ });
  assert.deepEqual(errors,[]);
 }catch(error){await page.screenshot({path:'test-results/task-form-options-failure.png',fullPage:true});console.error(error.stack);process.exitCode=1;}
 finally{await writeFile('test-results/task-form-options-browser.json',JSON.stringify({passed,errors,isolated:true},null,2));await browser.close();}
