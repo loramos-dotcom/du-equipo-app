@@ -2,6 +2,11 @@ import type {Row,State} from './model.ts';
 import {addDays,dateInBA,weekStart} from './model.ts';
 import {panelPriority} from './task-priority.ts';
 
+export function completedInWeek(task:Row,weekId:string){
+ if(task.status!=='Terminada'||!task.completedAt)return false;
+ const completedAt=new Date(task.completedAt);if(!Number.isFinite(completedAt.getTime()))return false;
+ const date=dateInBA(completedAt);return date>=weekId&&date<addDays(weekId,7);
+}
 export type WeekTask={task:Row;commitment?:Row;priority:boolean};
 export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateInBA(),historical?:any){
  const week=state.data.weeks.find(w=>w.id===weekId),closed=week?.status==='Cerrada';
@@ -19,7 +24,7 @@ export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateI
   const priority=panelPriority(task,{...state,data:{...state.data,commitments}},weekId)||!!commitment?.isPriority;
   if(fixed){if(fixed.has(task.id))chosen.push({task,commitment,priority});continue;}
   const open=!task.archived&&!['Terminada','Cancelada'].includes(task.status);
-  const completed=task.status==='Terminada'&&task.completedAt&&dateInBA(new Date(task.completedAt))>=weekId&&dateInBA(new Date(task.completedAt))<addDays(weekId,7);
+  const completed=completedInWeek(task,weekId);
   const selected=Object.hasOwn(selections,task.id)?selections[task.id]===true:null;
   const automatic=weekId>=weekStart(today)&&priority&&(open||completed)&&!task.archived;
   if(commitment||own&&completed||!task.archived&&(selected===true||selected!==false&&automatic))chosen.push({task,commitment,priority});
