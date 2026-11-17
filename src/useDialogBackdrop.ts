@@ -1,14 +1,20 @@
-import {useRef} from 'react';
-import type {MouseEvent,PointerEvent} from 'react';
-function outside(event:MouseEvent<HTMLDialogElement>|PointerEvent<HTMLDialogElement>){
- const bounds=event.currentTarget.getBoundingClientRect();
- return event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom;
-}
-export function useDialogBackdrop(onClose:()=>void,enabled=true){
- const pressedOutside=useRef(false);
- return {
-  onPointerDown:(event:PointerEvent<HTMLDialogElement>)=>{pressedOutside.current=enabled&&event.target===event.currentTarget&&outside(event);},
-  onPointerCancel:()=>{pressedOutside.current=false;},
-  onClick:(event:MouseEvent<HTMLDialogElement>)=>{const close=enabled&&pressedOutside.current&&event.target===event.currentTarget&&outside(event);pressedOutside.current=false;if(close)onClose();},
- };
+import {useEffect,useRef} from 'react';
+import type {RefObject} from 'react';
+
+// Native modal backdrops are outside the dialog's DOM box. Listen in capture
+// so selecting text or nested menus cannot swallow the outside press.
+export function useDialogBackdrop(ref:RefObject<HTMLDialogElement|null>,onClose:()=>void,enabled=true){
+ const close=useRef(onClose);close.current=onClose;
+ useEffect(()=>{
+  if(!enabled)return;
+  const outside=(event:PointerEvent)=>{
+   const dialog=ref.current;
+   if(!dialog?.open||event.button!==0||Array.from(document.querySelectorAll('dialog[open]')).at(-1)!==dialog)return;
+   const bounds=dialog.getBoundingClientRect();
+   if(event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom)return;
+   event.preventDefault();event.stopPropagation();close.current();
+  };
+  document.addEventListener('pointerdown',outside,true);
+  return ()=>document.removeEventListener('pointerdown',outside,true);
+ },[ref,enabled]);
 }
