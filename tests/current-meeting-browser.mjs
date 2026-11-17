@@ -36,7 +36,7 @@ await context.route(origin+'/api/**',async route=>{
 });
 const selector=()=>page.getByRole('group',{name:'Seleccionar semana',exact:true}),person=()=>page.getByRole('combobox',{name:'Persona del equipo',exact:true}),review=()=>page.getByRole('region',{name:'Semana revisada',exact:true}),planning=()=>page.getByRole('region',{name:'Tareas de la próxima semana',exact:true}),form=()=>page.locator('dialog.form-dialog');
 async function check(name,fn){await fn();passed.push(name);console.log('PASS '+name);}
-async function periods(review,planning){await page.waitForFunction(([a,b])=>{const texts=[...document.querySelectorAll('.meeting-context strong')].map(node=>node.textContent);return texts[0]===a&&texts[1]===b;},[rangeLabel(review),rangeLabel(planning)]);}
+async function periods(review,planning){await page.waitForFunction(([a,b])=>{const texts=[...document.querySelectorAll('.meeting-workspace .meeting-column-heading p')].map(node=>node.textContent);return texts[0]===a&&texts[1]===b;},[rangeLabel(review),rangeLabel(planning)]);}
 async function refresh(){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/state');await page.getByRole('button',{name:'Actualizar datos del equipo',exact:true}).click();await response;}
 async function operations(){if(!await page.locator('.meeting-operational').evaluate(element=>element.open))await page.locator('.meeting-operational>summary').click();}
 async function save(label='Guardar cambios'){await form().getByRole('button',{name:label,exact:true}).click();await form().waitFor({state:'hidden'});}
