@@ -28,7 +28,7 @@ export default function Management({expectedEmail,initialArea='all_projects',pro
   document.body.classList.add('management-print');
   return()=>{stopped=true;clearInterval(timer);window.removeEventListener('focus',visible);window.removeEventListener('du-management-access-changed',visible);window.removeEventListener('du-management-disconnected',disconnected);document.body.classList.remove('management-print');client.clear();};
  },[client,expectedEmail]);
- const pendingHeader=<><div className="page-heading"><div><h1>Proyectos de la DU<span>.</span></h1></div></div></>;
+ const pendingHeader=<><div className="page-heading"><div><h1>Proyectos de la DU</h1></div></div></>;
  if(user===undefined||!user&&!error)return <section>{pendingHeader}<div className="empty" role="status"><RefreshCw className="spin"/><h2>Cargando proyectos</h2></div></section>;
  if(!user)return <section>{pendingHeader}<div className="panel management-connect"><div className="section-title"><AlertTriangle size={24}/><h2>No pudimos cargar los proyectos</h2></div><p role="alert" className="notice">{error}</p><a className="btn primary" href="/auth/login">Volver a ingresar con Google</a></div></section>;
  return <div aria-label="Proyectos compartidos con el Tablero de Gestión"><QueryClientProvider client={client}><ManagementBoundary><Dashboard duPortfolio={duPortfolio} session={{user} as Session} initialArea={initialArea} projectId={projectId} onDuTracking={onDuTracking} initialView={initialView} onViewChange={onViewChange}/></ManagementBoundary></QueryClientProvider></div>;

@@ -40,7 +40,7 @@ async function save(label='Guardar cambios'){await form().getByRole('button',{na
 async function check(name,fn){await fn();passed.push(name);console.log('PASS '+name);}
 async function go(name){await closeDetail();if(await page.getByRole('button',{name:'Abrir navegación',exact:true}).isVisible())await page.getByRole('button',{name:'Abrir navegación',exact:true}).click();await page.locator('.sidebar').getByRole('button',{name,exact:true}).click();await page.waitForLoadState('networkidle');}
 try{
- await page.goto(origin+'/#Inicio');await page.getByRole('heading',{name:'Mi panel.',exact:true}).waitFor();await count(2);
+ await page.goto(origin+'/#Inicio');await page.getByRole('heading',{name:'Mi panel',exact:true}).waitFor();await count(2);
  await check('Los controles compactos preceden una sola lista y el contador corresponde a la selección',async()=>{
   assert.equal(await panel().locator('.panel-task-surface>.task-list').count(),1);assert.deepEqual(await panel().locator('.panel-task-row .task-name').allTextContents(),['Validar cifras de Universidad','Preparar brief de seguimiento']);assert.equal(await panel().getByRole('separator',{name:'Otros pendientes',exact:true}).count(),1);
   assert.equal((await panel().locator('.panel-filter-summary p').textContent()).trim(),'2 pendientes');assert.ok(!(await panel().innerText()).includes('Mostrando'));assert.equal(await page.locator('.desk-context').count(),0);assert.equal(await panel().locator('.panel-task-controls').evaluate(element=>getComputedStyle(element).borderTopWidth),'0px');assert.ok(await panel().locator('.panel-task-controls').evaluate(element=>element.getBoundingClientRect().height<180));
@@ -92,7 +92,7 @@ try{
  });
  await check('Los accesos de la agenda abren Calendar o la reunión DU correspondiente',async()=>{
   await agenda().getByRole('button',{name:/Tablero SSTEDU de prueba/}).click();await page.getByRole('region',{name:'Calendario del equipo',exact:true}).waitFor();assert.equal(await page.getByRole('tab',{name:'Reuniones y minutas',exact:true}).getAttribute('aria-selected'),'true');await go('Mi panel');await count(1);
-  await agenda().getByRole('button',{name:/Reunión DU del período de prueba/}).click();await page.getByRole('heading',{name:'Reunión semanal.',exact:true}).waitFor();await go('Mi panel');await count(1);
+  await agenda().getByRole('button',{name:/Reunión DU del período de prueba/}).click();await page.getByRole('heading',{name:'Reunión semanal',exact:true}).waitFor();await go('Mi panel');await count(1);
  });
  await check('El panel se adapta a tableta y móvil y conserva confirmación, filtros y navegación',async()=>{
   for(const width of [768,360]){
