@@ -87,7 +87,7 @@ try{
  await check('La ficha y los filtros ya no ofrecen subtareas',async()=>{
   await create('Tarea con descripción ampliada');await form().getByLabel('Descripción',{exact:true}).fill('Primer paso. Segundo paso. Detalle completo.');await save();const row=state.data.tasks.at(-1);assert.equal(row.parentTaskId,null);assert.equal(row.description,'Primer paso. Segundo paso. Detalle completo.');assert.equal(await detail().getByRole('button',{name:'Crear subtarea',exact:true}).count(),0);
   await detail().getByRole('button',{name:'Más secciones de la tarea',exact:true}).click();await detail().getByRole('button',{name:'Trabajo vinculado',exact:true}).click();assert.equal(await detail().getByRole('heading',{name:/Subtareas/}).count(),0);await closeDetail();
-  await page.getByText('Más filtros',{exact:true}).click();assert.equal(await page.getByRole('option',{name:'Subtareas',exact:true}).count(),0);await page.getByText('Más filtros',{exact:true}).click();await page.locator('.task-name').filter({hasText:row.title}).click();
+  await page.getByRole('button',{name:'Más filtros',exact:true}).click();assert.equal(await page.getByRole('option',{name:'Subtareas',exact:true}).count(),0);await page.getByRole('button',{name:'Más filtros',exact:true}).click();await page.locator('.task-name').filter({hasText:row.title}).click();
  });
  await check('El bloqueo se registra dentro de la tarea sin repetir responsable, vínculo ni estado',async()=>{
   const taskId=state.data.tasks.at(-1).id;await detail().getByRole('button',{name:'Registrar bloqueo',exact:true}).click();await form().getByText('Tarea: Tarea con descripción ampliada',{exact:true}).waitFor();
