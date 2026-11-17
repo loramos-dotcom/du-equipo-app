@@ -1,7 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
-import {homeWork} from '../shared/home.ts';
+import {panelAgenda,homeWork} from '../shared/home.ts';
+import {dateInBA,weekStart} from '../shared/model.ts';
+import {selectTasks} from '../shared/views.ts';
+import {readQuery} from '../server/read-queries.ts';
 import {calendarFollowups} from '../shared/calendar.ts';
 import type {TeamEvent} from '../shared/calendar.ts';
 import {interventionStatus,pendingInterventions} from '../shared/followup.ts';
@@ -72,4 +75,28 @@ test('El resumen de una semana cerrada usa su versión publicada, sin alterar la
  const commitments=structuredClone(s.data.commitments),tasks=structuredClone(s.data.tasks);s.snapshots.push({id:'closed',kind:'week',targetId:'2026-10-19',version:2,at:'2026-10-23T17:00:00Z',actorId:'persona01',reason:'',payload:{commitments,tasks}});
  s.data.commitments[0].result='Cambió después';s.data.tasks[0].title='Nombre actual';
  const work=homeWork(s,'persona05','2026-10-19');assert.equal(work.weekClosed,true);assert.equal(work.commitments[0].commitment.result,'Preparar el primer brief');assert.equal(work.commitments[0].task!.title,'sin-fecha');assert.equal(work.tasks.find(t=>t.id==='sin-fecha')!.title,'Nombre actual');
+});
+
+test('La agenda del panel une reuniones y seguimientos sin repetir un evento ni incorporar fechas operativas',()=>{
+ const now=Date.parse('2026-11-17T12:00:00Z'),event=(id:string,title:string,start:string,end:string,extra:Partial<TeamEvent>={}):TeamEvent=>({id,title,start,end,allDay:false,location:'',url:'',meetUrl:'',updated:'2026-11-17T11:00:00Z',memberIds:['persona05'],...extra});
+ const followup=event('follow','Tablero SSTEDU','2026-11-17T14:00:00-03:00','2026-11-17T15:00:00-03:00'),events=[followup,{...followup},event('meeting','Reunión de equipo','2026-11-17T16:00:00Z','2026-11-17T17:00:00Z'),event('other','Reunión ajena','2026-11-17T15:00:00Z','2026-11-17T16:00:00Z',{memberIds:['persona06']}),event('ended','Reunión terminada','2026-11-17T10:00:00Z','2026-11-17T11:00:00Z')];
+ const meetings:Row[]=[{id:'weekly',version:1,title:'Reunión DU',date:'2026-11-17T12:00',status:'Borrador',attendees:['persona05']},{id:'minute',version:1,title:'Minuta del evento',date:followup.start,status:'Borrador',calendarEventKey:followup.id,attendees:['persona05']},{id:'closed',version:1,title:'Reunión cerrada',date:'2026-11-18T12:00',status:'Cerrada',attendees:['persona05']}];
+ const before=structuredClone({events,meetings}),rows=panelAgenda(events,meetings,'persona05',now);
+ assert.deepEqual(rows.map(row=>row.id),['weekly:weekly','calendar:meeting','calendar:follow']);assert.equal(rows.at(-1)?.kind,'followup');assert.deepEqual({events,meetings},before);
+});
+test('La agenda respeta Buenos Aires, el fin exclusivo de los eventos de todo el día y eventos distintos con el mismo título',()=>{
+ const now=Date.parse('2026-11-18T01:00:00Z'),base:TeamEvent={id:'night',title:'Tablero nocturno',start:'2026-11-18T01:30:00Z',end:'2026-11-18T02:00:00Z',allDay:false,memberIds:['persona05'],updated:'2026-11-17T12:00:00Z',location:'',url:'',meetUrl:''};
+ const rows=panelAgenda([base,{...base,id:'distinct'},{...base,id:'day',title:'Todo el día',start:'2026-11-17',end:'2026-11-18',allDay:true},{...base,id:'old-day',start:'2026-11-16',end:'2026-11-17',allDay:true},{...base,id:'bad',start:'fecha inválida'}],[],'persona05',now);
+ assert.equal(rows.length,3);assert.ok(rows.every(row=>row.day==='2026-11-17'));assert.equal(rows[0].id,'calendar:day');assert.equal(rows.filter(row=>row.title===base.title).length,2);
+ assert.equal(panelAgenda([{...base,id:'day',start:'2026-11-17',end:'2026-11-18',allDay:true}],[],'persona05',Date.parse('2026-11-18T03:00:00Z')).length,0);
+});
+test('Las prioritarias se ordenan globalmente antes de paginar sin modificar datos ni requerir una migración',async()=>{
+ const state=fixture(),today=dateInBA(),week=weekStart(today);state.data.tasks=Array.from({length:60},(_,index)=>({id:'paged-'+index,version:1,title:'Entrega '+String(index).padStart(2,'0'),ownerId:'persona05',status:'Pendiente',panelPriority:index===0,createdAt:'2026-11-17T12:00:'+String(index).padStart(2,'0')+'Z'}));
+ state.data.tasks[1].priority='Alta';state.data.commitments=[];const before=structuredClone(state),actor=state.data.members.find(member=>member.id==='persona05')!;let direct=0;
+ const store={load:async()=>structuredClone(state),create:async()=>{},save:async()=>true,records:async()=>{direct++;return {rows:[],total:0};}};
+ const query=(offset:number)=>new Request('https://du.example/api/records?entity=tasks&limit=50&offset='+offset+'&filters='+encodeURIComponent(JSON.stringify({owner:'persona05',state:'open',sort:'priority'})));
+ const first=await(await readQuery(query(0),store,state.workspaceId,actor))!.json(),second=await(await readQuery(query(50),store,state.workspaceId,actor))!.json();
+ assert.equal(first.total,60);assert.equal(first.rows[0].id,'paged-0');assert.equal(first.rows.length,50);assert.equal(second.rows.length,10);assert.equal(new Set([...first.rows,...second.rows].map(row=>row.id)).size,60);assert.equal(direct,0);assert.deepEqual(state,before);
+ const ordered=selectTasks(state,{owner:'persona05',state:'open',due:'',independent:false,sort:'priority'},today);assert.equal(ordered[0].id,'paged-0');
+ state.data.tasks[2].panelPriority=undefined;state.data.commitments.push({id:'priority',version:1,taskId:'paged-2',ownerId:'persona05',weekId:week,isPriority:true});assert.ok(selectTasks(state,{owner:'persona05',state:'open',due:'',independent:false,sort:'priority'},today).slice(0,2).some(row=>row.id==='paged-2'));
 });

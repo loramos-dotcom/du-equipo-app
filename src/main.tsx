@@ -9,4 +9,5 @@ import './completion.css';
 import './work-links.css';
 import './work-meaning.css';
 import './workspace-design.css';
+import './panel-compact.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

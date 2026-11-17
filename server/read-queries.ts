@@ -13,11 +13,11 @@ export async function readQuery(request:Request,store:Store,key:string,actor:Row
    if(entity==='tasks'){delete filters.parent;if(filters.relationship!=='blocked')delete filters.relationship;}
    if(entity==='issues'&&actor.role!=='Coordinación')filters.owner=actor.id;
    // The work graph is stored in existing task records. Resolve prerequisites
-   // before paginating, so filters never depend on which page happens to be visible.
+   // and global priority order before paginating, independently of the visible page.
    // This also works with the deployed database schema, without a separate migration.
-   if(entity==='tasks'&&(filters.q||filters.relationship)){
+   if(entity==='tasks'&&(filters.q||filters.relationship||filters.sort==='priority')){
     const source=state??await store.load(key,{history:false});if(!source)throw new DomainError('No se pudo cargar el trabajo del equipo.',503);
-    const {selectTasks}=await import('../shared/views.ts');const rows=selectTasks(source,{owner:'',state:'',due:'',independent:false,...filters},dateInBA());return json({rows:rows.slice(offset,offset+limit),total:rows.length});
+    const {selectTasks}=await import('../shared/views.ts');const rows=selectTasks(filters.sort==='priority'?publicState(source,actor.id):source,{owner:'',state:'',due:'',independent:false,...filters},dateInBA());return json({rows:rows.slice(offset,offset+limit),total:rows.length});
    }
    if(store.records)return json(await store.records(key,entity,filters,dateInBA(),offset,limit));
    const {selectTasks}=await import('../shared/views.ts');const rows=entity==='tasks'?selectTasks(publicState(state!,actor.id),{owner:'',state:'',due:'',independent:false,...filters},dateInBA()):publicState(state!,actor.id).data[entity as Collection].filter(r=>!r.external&&(filters.archived||!r.archived)&&(!filters.q||normalize(r.title+' '+r.outcome).includes(normalize(filters.q)))&&(!filters.owner||(entity==='projects'?r.leadId:r.ownerId)===filters.owner)&&(!filters.status||r.status===filters.status)&&(!filters.area||r.areaIds?.includes(filters.area))&&(!filters.delivery||r.delivery===filters.delivery)&&(!filters.priority||r.duPriority)&&(!filters.kind||r.kind===filters.kind)&&(!filters.scope||r.scope===filters.scope)&&(!filters.policy||r.policyId===filters.policy));return json({rows:rows.slice(offset,offset+limit),total:rows.length});

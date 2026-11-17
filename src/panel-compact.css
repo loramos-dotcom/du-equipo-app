@@ -1,0 +1,71 @@
+/* Mi panel: compact controls, one task surface, one personal agenda. */
+.workspace-panel .desk-layout{gap:24px}
+.workspace-panel .desk-main{gap:16px}
+.workspace-panel .workspace-create-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.workspace-panel .panel-help-shortcut{position:relative}
+.workspace-panel .panel-help-shortcut>span{position:absolute;right:-4px;top:-4px;background:var(--teal);color:white;font-size:9px;line-height:16px;min-width:16px;border-radius:8px;padding:0 3px}
+.workspace-panel .panel-tasks{gap:12px}
+.workspace-panel .panel-controls-compact{padding:0;background:transparent;border:0;border-radius:0}
+.workspace-panel .panel-controls-compact .panel-task-scopes{flex-direction:row;align-items:center;gap:8px;margin:0 0 12px}
+.workspace-panel .panel-task-switch{padding:3px}
+.workspace-panel .panel-task-switch>button{font-size:12px;min-height:33px;padding:6px 11px}
+.workspace-panel .panel-task-states>button{font-size:12px;min-height:35px;padding:6px 9px}
+.workspace-panel .panel-controls-compact .panel-task-search{position:relative;display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
+.workspace-panel .panel-controls-compact .filter-search{flex:1;min-width:0;max-width:none;width:auto}
+.workspace-panel .panel-controls-compact .filter-search input{min-height:38px;font-size:12px}
+.workspace-panel .panel-task-search>.segmented{margin:0;flex-shrink:0}
+.workspace-panel .panel-task-search>.icon{flex-shrink:0;width:36px;height:38px}
+.workspace-panel .panel-task-more-filters{position:static;border:0;margin:0;flex-shrink:0}
+.workspace-panel .panel-task-more-filters>summary{position:relative;display:grid;place-items:center;width:36px;height:38px;min-height:0;padding:0;border:1px solid var(--line);border-radius:6px;background:white;list-style:none;color:var(--teal)}
+.workspace-panel .panel-task-more-filters>summary>svg:last-child{margin:0;transform:none}
+.workspace-panel .panel-task-more-filters[open]>summary{background:var(--soft);border-color:var(--teal)}
+.workspace-panel .filter-active-dot{position:absolute;right:5px;top:5px;width:5px;height:5px;border-radius:50%;background:var(--teal)}
+.workspace-panel .panel-task-filter-popover{position:absolute;right:0;top:calc(100% + 8px);width:min(620px,100%);z-index:15;padding:16px;background:white;border:1px solid var(--line);border-radius:9px;box-shadow:0 10px 28px #1d33431c}
+.workspace-panel .panel-filter-heading{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+.workspace-panel .panel-task-filter-popover .filter-bar{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 15px}
+.workspace-panel .panel-task-filter-popover .filter-control{flex:1 1 calc(33.333% - 12px);min-width:130px;font-size:11px}
+.workspace-panel .panel-task-filter-popover select{width:100%;min-height:36px;font-size:12px}
+.workspace-panel .panel-task-filter-popover .task-filter-options{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;padding:0;font-size:11px}
+.workspace-panel .panel-filter-summary{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:35px;padding:5px 0 0;color:var(--muted);font-size:11px}
+.workspace-panel .panel-filter-summary>p{margin:0;font-size:11px;white-space:nowrap}
+.workspace-panel .panel-filter-summary strong{color:var(--ink);font-variant-numeric:tabular-nums}
+.workspace-panel .panel-filter-summary .active-filters{display:flex;flex-wrap:wrap;gap:5px;margin:0;min-width:0}
+.workspace-panel .panel-filter-summary .active-filters>span{font-size:10px;background:var(--soft);border-radius:4px;padding:3px 6px;overflow-wrap:anywhere}
+.workspace-panel .panel-filter-summary>.icon{width:26px;height:26px}
+.workspace-panel .panel-task-surface{overflow:visible}
+.workspace-panel .panel-task-surface>.task-list{margin:0 18px;border:0}
+.workspace-panel .panel-task-surface .panel-task-row{padding:16px 0;border:0;border-top:1px solid var(--line);background:none}
+.workspace-panel .panel-task-surface .panel-task-row:first-child{border-top:0}
+.workspace-panel .panel-task-content{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px 16px;align-items:center;min-width:0}
+.workspace-panel .panel-task-heading{min-width:0}
+.workspace-panel .panel-task-heading .task-name{width:auto;padding:0;line-height:1.5}
+.workspace-panel .panel-task-heading .task-name>strong{font-size:14px;line-height:1.6}
+.workspace-panel .panel-task-project{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;margin-top:5px;font-size:10px;line-height:1.6;color:var(--muted)}
+.workspace-panel .panel-task-project>span{min-width:0;overflow-wrap:anywhere}
+.workspace-panel .panel-task-project .area-tags{gap:4px}
+.workspace-panel .panel-task-project .area-chip{font-size:10px;padding:2px 5px;line-height:1.4}
+.workspace-panel .panel-task-meta{margin:0;gap:7px 9px;justify-content:flex-end;max-width:205px}
+.workspace-panel .panel-task-meta .task-date{font-size:10px;white-space:nowrap}
+.workspace-panel .panel-task-meta .task-status-control{min-height:28px}
+.workspace-panel .panel-task-meta .person-avatar{width:25px;height:25px;font-size:9px}
+.workspace-panel .panel-task-tools{display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
+.workspace-panel .panel-task-tools>.icon,.workspace-panel .panel-task-menu>summary{width:31px;height:31px;min-height:31px;flex-shrink:0}
+.workspace-panel .panel-static-priority{display:grid;place-items:center;width:31px;height:31px;color:var(--teal)}
+.workspace-panel .panel-task-menu{margin:0}
+.workspace-panel .panel-task-menu>div{max-width:calc(100vw - 40px)}
+.workspace-panel .panel-task-divider{padding:10px 0 5px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:600}
+.workspace-panel .panel-task-divider+.panel-task-row{border-top:0}
+.workspace-panel .panel-task-card .panel-task-content{display:flex;align-items:stretch;flex-direction:column;gap:10px}
+.workspace-panel .panel-task-card .panel-task-meta{max-width:none;justify-content:flex-start}
+.workspace-panel .panel-task-board>.task-board{margin:12px}
+.workspace-panel .panel-task-board .panel-task-card{background:white}
+.workspace-panel .panel-agenda>.desk-section-heading{min-height:62px;padding:17px}
+.workspace-panel .panel-agenda .desk-agenda-item{padding:15px 17px;gap:11px}
+.workspace-panel .panel-agenda .desk-agenda-item>span>strong{font-size:12px}
+.workspace-panel .panel-agenda .desk-agenda-item>span>small{font-size:10px}
+.workspace-panel .panel-agenda .desk-date-block{width:36px;height:44px}
+.workspace-panel .panel-agenda>.desk-empty-copy{font-size:11px;padding:16px 17px}
+.workspace-panel .panel-agenda>.desk-section-link{margin-left:17px;margin-right:17px;font-size:11px}
+@media(max-width:1400px){.workspace-panel .panel-task-content{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}.workspace-panel .panel-task-heading{grid-column:1;grid-row:1}.workspace-panel .panel-task-tools{grid-column:2;grid-row:1}.workspace-panel .panel-task-meta{grid-column:1/-1;grid-row:2;max-width:none;justify-content:flex-start}}
+@media(max-width:1000px){.workspace-panel .desk-layout{grid-template-columns:minmax(0,1fr)}.workspace-panel .desk-rail{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){.workspace-panel .panel-controls-compact .panel-task-scopes{gap:8px}.workspace-panel .panel-task-switch{width:auto;flex:1 1 100%}.workspace-panel .panel-task-switch>button{flex:1;min-height:35px}.workspace-panel .panel-task-states{width:100%;justify-content:flex-start}.workspace-panel .panel-task-states>button{min-height:33px;font-size:11px;padding:6px 12px}.workspace-panel .panel-controls-compact .panel-task-search{flex-wrap:wrap;gap:6px}.workspace-panel .panel-controls-compact .filter-search{flex:1 1 100%;width:100%;max-width:100%}.workspace-panel .panel-task-search>.segmented{margin-right:auto}.workspace-panel .panel-task-filter-popover{width:100%;padding:13px}.workspace-panel .panel-task-filter-popover .filter-control{flex-basis:calc(50% - 6px);min-width:0}.workspace-panel .panel-task-filter-popover select{font-size:11px;min-width:0}.workspace-panel .panel-task-surface>.task-list{margin-left:14px;margin-right:14px}.workspace-panel .panel-task-content{grid-template-columns:minmax(0,1fr);gap:9px}.workspace-panel .panel-task-heading{grid-column:1;grid-row:1}.workspace-panel .panel-task-meta{grid-column:1;grid-row:2}.workspace-panel .panel-task-tools{grid-column:1;grid-row:3;justify-content:flex-end}.workspace-panel .panel-task-heading .task-name>strong{font-size:13px}.workspace-panel .panel-task-project{font-size:10px}.workspace-panel .panel-task-row{padding:14px 0}.workspace-panel .workspace-create-actions{gap:7px}.workspace-panel .workspace-create-actions>.btn{font-size:11px;min-height:37px;padding:9px 10px}.workspace-panel .panel-agenda .desk-section-heading h2{font-size:15px}}
