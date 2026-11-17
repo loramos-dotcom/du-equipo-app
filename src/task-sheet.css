@@ -32,3 +32,8 @@
 .task-detail .task-weekly-links>summary{cursor:pointer;font-size:12px;color:var(--muted)}
 .task-detail>.detail-close{top:16px;right:16px;width:34px;height:34px;border-radius:6px;background:var(--soft)}
 @media(max-width:760px){.detail-sheet.task-detail{width:100%;max-width:100vw}.task-detail .task-detail-overview{padding:38px 20px 20px}.task-detail .task-detail-overview h2{font-size:24px}.task-detail .detail-body{padding:22px 20px 28px}.task-detail .task-detail-meta{gap:10px 16px}.task-detail .task-sheet-tabs{padding:0 10px}.task-sheet-more>div{left:auto;right:0}}
+
+.task-detail-topline{display:flex;align-items:center;gap:10px;margin:0 44px 12px 0;min-height:30px}
+.task-detail .task-detail-topline>.eyebrow{margin:0;font-size:10px;letter-spacing:.1em}
+.task-back-project{width:30px;height:30px;border:0;flex-shrink:0}
+.task-back-project:hover{background:var(--soft)}

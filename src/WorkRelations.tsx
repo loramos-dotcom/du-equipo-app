@@ -4,8 +4,9 @@ import {formatDate,rangeLabel} from '../shared/model';
 import {workLabel,workName,workBlockers,workClosureProblems} from '../shared/work';
 import {RecordType} from './WorkMeaning';
 
-export function WorkContext({row,rows,onOpen,showType=true}:{row:Row;rows:Row[];onOpen:(id:string)=>void;showType?:boolean}){
+export function WorkContext({row,rows,onOpen,showType=false}:{row:Row;rows:Row[];onOpen:(id:string)=>void;showType?:boolean}){
  const blocked=workBlockers(rows,row).length;
+ if(!showType&&!blocked)return null;
  return <div className="work-context">{showType&&<RecordType kind="task"/>}{blocked>0&&<span className="work-blocked">{blocked} dependencia{blocked===1?'':'s'} pendiente{blocked===1?'':'s'}</span>}</div>;
 }
 export function WorkGuide(){return <div className="work-guide"><article><strong>Tarea</strong><p>El trabajo completo: «Preparar el informe». Puede ser independiente o pertenecer a un proyecto.</p></article><article><strong>Compromiso semanal</strong><p>El avance que acordás lograr esta semana sobre una tarea: «Dejar validados los datos de dos áreas». Cumplirlo no termina automáticamente la tarea.</p></article></div>;}

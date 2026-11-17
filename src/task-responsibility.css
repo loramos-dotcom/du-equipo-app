@@ -1,0 +1,8 @@
+.task-responsibility{display:inline-flex;align-items:center;flex-wrap:wrap;gap:7px 12px;min-width:0;font-size:11px}
+.task-responsibility-role{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.task-responsibility-label{color:var(--muted);font-size:10px;white-space:nowrap}
+.task-responsibility .person{display:inline-flex}
+.task-row>.task-responsibility{margin-left:auto}
+.task-section-title{display:flex;align-items:center;gap:8px}
+.task-section-title>svg{color:var(--teal)}
+@media(max-width:760px){.task-row>.task-responsibility{margin-left:0}.task-responsibility{max-width:100%}}
