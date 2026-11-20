@@ -39,7 +39,7 @@ jobs:
           exit "$browser_failures"
       - name: Capturas de Mi semana con datos ficticios
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: weekly-tasks-review
           path: |
@@ -49,7 +49,7 @@ jobs:
           retention-days: 3
       - name: Capturas de Proyectos con datos ficticios
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: projects-review
           path: |
@@ -60,7 +60,7 @@ jobs:
           retention-days: 3
       - name: Capturas de Bloqueos y ayuda con datos ficticios
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: task-followup-review
           path: |
@@ -71,7 +71,7 @@ jobs:
       - run: npm run test:worker
       - name: Capturas de proyecto obligatorio con datos ficticios
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: required-projects-review
           path: |
