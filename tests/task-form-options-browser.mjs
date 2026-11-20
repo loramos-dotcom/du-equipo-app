@@ -160,6 +160,21 @@ try{
   await form().getByLabel('Observación de validación',{exact:true}).fill('Entrega revisada y aprobada');await form().getByRole('button',{name:'Sí, finalizar tarea',exact:true}).click();await form().waitFor({state:'hidden'});const approved=state.data.tasks.find(task=>task.id===row.id);assert.equal(approved.status,'Terminada');assert.equal(approved.validatedBy,'persona01');assert.ok(approved.validatedAt);
   identity={id:'verified-persona06',email:emails.persona06,provider:'google',verified:true};await page.reload();await page.waitForLoadState('networkidle');await showTask('Entrega con edición concurrente');assert.equal(await detail().getByRole('button',{name:'Marcar como finalizada',exact:true}).count(),0);
  });
+ await check('Una integrante puede tomar y crear tareas de un proyecto con otra referente',async()=>{
+  const project=state.data.projects.find(row=>row.id==='p1');
+  assert.ok(!project.members.includes('persona06'));
+  await detail().getByRole('button',{name:'Más acciones',exact:true}).click();
+  await detail().getByRole('button',{name:'Asignarme',exact:true}).click();
+  await form().getByRole('button',{name:'Asignarme',exact:true}).click();
+  await form().waitFor({state:'hidden'});
+  assert.equal(state.data.tasks.find(row=>row.title==='Entrega con edición concurrente').ownerId,'persona06');
+  await create('Seguimiento a mi cargo');
+  await pick('Proyecto o línea','presupuestaria',project.title);
+  assert.equal(await form().getByLabel('Referente DU',{exact:true}).inputValue(),'persona06');
+  await save();
+  assert.equal(state.data.tasks.at(-1).ownerId,'persona06');
+  assert.deepEqual(state.data.projects.find(row=>row.id===project.id),project);
+ });
  assert.deepEqual(errors,[]);
 }catch(error){await page.screenshot({path:'test-results/task-form-options-failure.png',fullPage:true});console.error(error.stack);process.exitCode=1;}
 finally{await writeFile('test-results/task-form-options-browser.json',JSON.stringify({passed,errors,isolated:true},null,2));await browser.close();}
