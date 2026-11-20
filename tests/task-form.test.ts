@@ -40,6 +40,22 @@ test('La asignación conserva permisos de proyecto y no pierde áreas histórica
  const moved=execute(revised,'persona01',{id:crypto.randomUUID(),kind:'reassign_task',entityId:assigned.row.id,expectedVersion:revised.data.tasks.find(row=>row.id===assigned.row.id)!.version,data:{ownerId:'persona01',reason:'Nueva responsabilidad'}},now).state;
  assert.deepEqual(moved.data.tasks.find(row=>row.id===assigned.row.id)!.areaIds,['universidad']);
 });
+test('Cualquier integrante activo puede tomar una tarea fuera de su proyecto sin cambiar el equipo del proyecto',()=>{
+ const state=seed(now),project=state.data.projects.find(row=>row.id==='p1')!;
+ project.members=['persona05'];project.leadId='persona05';
+ for(const actor of ['persona01','persona04']){
+  const made=create(state,{projectId:project.id,ownerId:actor},actor);
+  assert.equal(made.row.ownerId,actor);
+  assert.deepEqual(made.state.data.projects,state.data.projects);
+  const edited=update(made.state,made.row.id,{title:'Seguimiento actualizado'},'persona05');
+  assert.equal(edited.data.tasks.find(t=>t.id===made.row.id)!.ownerId,actor);
+ }
+ const existing=create(state,{projectId:project.id},'persona05');
+ const transfer=(ownerId:string,actor:string)=>execute(existing.state,actor,{id:crypto.randomUUID(),kind:'reassign_task',entityId:existing.row.id,expectedVersion:existing.row.version,data:{ownerId,reason:'Asumir el seguimiento'}},now);
+ assert.throws(()=>transfer('persona02','persona04'),/Solo podés asignarte/);
+ assert.equal(transfer('persona04','persona04').state.data.tasks.find(t=>t.id===existing.row.id)!.ownerId,'persona04');
+ assert.throws(()=>create(state,{projectId:project.id,ownerId:'persona02'},'persona04'),/a tu nombre/);
+});
 test('Editar la ficha conserva hitos y dependencias existentes aunque ya no se ofrezcan en el alta',()=>{
  const state=seed(now);state.data.milestones.push({id:'h-existing',version:1,projectId:'p1',title:'Entregable'});
  const created=create(state,{projectId:'p1',milestoneId:'h-existing',dependsOnIds:['t2']});

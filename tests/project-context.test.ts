@@ -24,7 +24,9 @@ test('La configuración DU asigna referente y cartera sin cambiar permisos o dat
  assert.equal(linked.data.projectLinks.length,1);assert.equal(linked.data.projectLinks[0].title,undefined);
  const view=publicState({...linked,externalProjects:[external]},'persona05'),project=view.data.projects.find(p=>p.id===external.id)!;
  assert.equal(project.leadId,'persona05');assert.deepEqual(project.areaIds,['universidad']);assert.equal(project.duPriority,false);
- assert.throws(()=>run({...linked,externalProjects:[external]},'persona06','create',{title:'Tarea',ownerId:'persona06',projectId:external.id},'tasks'),/No participás/);
+ const taken=run({...linked,externalProjects:[external]},'persona06','create',{title:'Tarea',ownerId:'persona06',projectId:external.id},'tasks');
+ assert.equal(taken.state.data.tasks.find(t=>t.id===taken.result.id)?.ownerId,'persona06');
+ assert.deepEqual(taken.state.data.projectLinks,linked.data.projectLinks);
  assert.throws(()=>run({...linked,externalProjects:[external]},'persona01','update',{title:'Reescribir fuente'},'projects',external.id,1),/datos compartidos/);
 });
 test('Un identificador compartido arbitrario o un acceso perdido no se convierten en proyecto autorizado',()=>{
