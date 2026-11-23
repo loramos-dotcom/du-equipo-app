@@ -29,7 +29,7 @@ const fields:Partial<Record<Collection,string[]>>={
  meetings:['title','date','weekId','planningWeekId','attendees','durations','minutes','presentIds','excusedIds','selectedUpdateIds','selectedCommitmentIds','advanceMinutes','decisionMinutes','teamMinutes','planningMinutes'],
  members:['name','functionTitle','responsibilities','reportsTo','group','email','role','active','accessSuspended','setupStatus'],
  areas:['name','acronym','leadId','substitutes','parentId','active','contact','contactEmail','documents'],
- recurrences:['executionType','executionAreaId','title','projectId','ownerId','collaborators','description','priority','frequency','weekday','monthday','startsOn','endsOn','active','requiresValidation','validatorId'],
+ recurrences:['executionType','executionAreaId','title','projectId','ownerId','collaborators','description','priority','frequency','weekday','monthday','startsOn','endsOn','active','requiresValidation','validatorId','generateOnDate'],
  areaContacts:['areaId','name','position','email','active'],
  catalogs:['name','type','active'],filters:['name','scope','definition','view','shared'],links:['targetType','targetId','title','url'],comments:['targetType','targetId','body','entryType']
 };
@@ -348,6 +348,10 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   if(c==='recurrences'){executionRefs(row,input.data.recurrences.find(item=>item.id===row.id));if(taskProjectRequired(s)&&row.active!==false&&!row.projectId)fail('Elegí un proyecto para la tarea recurrente.');required(row.title,'Título');row.collaborators=taskCollaborators(row.ownerId,row.collaborators??[]);activeMember(row.ownerId);for(const id of row.collaborators??[])activeMember(id);if(!['Alta','Media','Baja'].includes(row.priority??'Media'))fail('Prioridad inválida.');if(!['Semanal','Mensual'].includes(row.frequency))fail('Frecuencia inválida.');if(!row.startsOn)fail('Indicá fecha inicial.');if(row.frequency==='Mensual'&&!(row.monthday>=1&&row.monthday<=31))fail('El día debe estar entre 1 y 31.');row.active=row.active??true;}
   if(c==='recurrences'){if(row.frequency==='Semanal'&&(!Number.isInteger(Number(row.weekday))||Number(row.weekday)<0||Number(row.weekday)>6))fail('Elegí un día de la semana entre domingo y sábado.');if(row.frequency==='Mensual'&&!Number.isInteger(Number(row.monthday)))fail('El día del mes debe ser un número entero.');if(row.endsOn&&row.endsOn<row.startsOn)fail('La fecha final debe ser posterior a la inicial.');if(row.projectId){const p=get('projects',row.projectId);checkProjectAssignees(row,p,input.data.recurrences.find(template=>template.id===row.id));}if(row.requiresValidation){activeMember(row.validatorId);if(row.ownerId===row.validatorId)fail('El validador debe ser diferente del responsable.');}}
   if(c==='filters'){required(row.name,'Nombre del filtro');row.ownerId=row.ownerId??actorId;if(row.scope?.startsWith('view:')){try{row.definition=cleanView(row.definition);}catch(e){fail((e as Error).message);}if(row.scope!=='view:'+row.definition.page)fail('La vista no coincide con su sección.');}}
+  if(c==='recurrences'&&row.generateOnDate!==undefined){
+   if(typeof row.generateOnDate!=='boolean')fail('Elegí si la tarea se genera el lunes a medianoche.');
+   if(row.frequency!=='Semanal'||Number(row.weekday)!==1)row.generateOnDate=false;
+  }
   result={id:row.id,...(interventionId?{interventionId}:{})};break;
  }
  case 'transition_task':{const t=get('tasks',command.entityId!);version(t);transition(t,a.status,a.note??'',a.evidence);break;}
@@ -480,7 +484,47 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   r.pendingDates=r.pendingDates.filter((date:string)=>!a.dates.includes(date));result={created,discarded:a.action==='discard'?a.dates.length:0};break;
  }
  case 'generate_occurrences':{
-  checkCoord();const end=addDays(weekStart(today),13),errors:any[]=[];let created=0;for(const r of d.recurrences.filter(x=>x.active)){const count=d.tasks.length;try{if(!d.members.some(m=>m.id===r.ownerId&&m.active)){r.pendingReassignment=true;fail('La plantilla necesita reasignación de responsable.');}const omittedStart=r.generationCursor?addDays(r.generationCursor,1):r.startsOn;if(omittedStart<weekStart(today)){r.pendingDates=occurrenceDates(r,omittedStart,addDays(weekStart(today),-1)).filter(date=>!(r.dismissedDates??[]).includes(date)&&![...d.tasks,...deleted.tasks,...purgedTasks].some(t=>t.recurrenceId===r.id&&t.occurrenceDate===date));}const dates=occurrenceDates(r,weekStart(today),end);for(const date of dates){if([...d.tasks,...deleted.tasks,...purgedTasks].some(t=>t.recurrenceId===r.id&&t.occurrenceDate===date))continue;const t=newRow('tasks',{...pick(r,['executionType','executionAreaId']),title:r.title,description:r.description??'',ownerId:r.ownerId,projectId:r.projectId??null,status:'Pendiente',priority:r.priority??'Media',requiresValidation:!!r.requiresValidation,validatorId:r.validatorId??null,code:nextTaskCode(),dueDate:date,originalDueDate:date,collaborators:r.collaborators??[],links:[],recurrenceId:r.id,occurrenceDate:date,origin:'Rutina'});taskRefs(t,r);}created+=d.tasks.length-count;r.lastGeneratedAt=at;r.generationCursor=end;r.lastGenerationError=null;}catch(e){d.tasks.splice(count);r.lastGenerationError=(e as Error).message;errors.push({id:r.id,title:r.title,error:r.lastGenerationError});}}result={created,errors};break;
+  checkCoord();
+  const errors:{id:string;title:string;error:string}[]=[];
+  let created=0;
+  for(const r of d.recurrences.filter(row=>row.active)){
+   const count=d.tasks.length;
+   const start=r.generateOnDate?today:weekStart(today);
+   const end=r.generateOnDate?today:addDays(start,13);
+   const alreadyGenerated=(date:string)=>[...d.tasks,...deleted.tasks,...purgedTasks].some(task=>task.recurrenceId===r.id&&task.occurrenceDate===date);
+   try{
+    if(!d.members.some(m=>m.id===r.ownerId&&m.active)){
+     r.pendingReassignment=true;
+     fail('La plantilla necesita reasignación de responsable.');
+    }
+    const omittedStart=r.generationCursor?addDays(r.generationCursor,1):r.startsOn;
+    if(omittedStart<start){
+     const omitted=occurrenceDates(r,omittedStart,addDays(start,-1)).filter(date=>!(r.dismissedDates??[]).includes(date)&&!alreadyGenerated(date));
+     r.pendingDates=r.generateOnDate?[...new Set([...(r.pendingDates??[]),...omitted])]:omitted;
+    }
+    for(const date of occurrenceDates(r,start,end)){
+     if(alreadyGenerated(date)||(r.generateOnDate&&(r.dismissedDates??[]).includes(date)))continue;
+     const dueDate=r.generateOnDate?null:date;
+     const task=newRow('tasks',{
+      ...pick(r,['executionType','executionAreaId']),title:r.title,description:r.description??'',
+      ownerId:r.ownerId,projectId:r.projectId??null,status:'Pendiente',priority:r.priority??'Media',
+      requiresValidation:!!r.requiresValidation,validatorId:r.validatorId??null,code:nextTaskCode(),
+      dueDate,originalDueDate:dueDate,collaborators:r.collaborators??[],links:[],
+      recurrenceId:r.id,occurrenceDate:date,origin:'Rutina'
+     });
+     taskRefs(task,r);
+    }
+    created+=d.tasks.length-count;
+    r.lastGeneratedAt=at;
+    r.generationCursor=end;
+    r.lastGenerationError=null;
+   }catch(error){
+    d.tasks.splice(count);
+    r.lastGenerationError=(error as Error).message;
+    errors.push({id:r.id,title:r.title,error:r.lastGenerationError});
+   }
+  }
+  result={created,errors};break;
  }
  case 'generate_notifications':{
   checkCoord();for(const t of d.tasks.filter(x=>!x.archived&&!terminals.includes(x.status)&&x.dueDate&&x.dueDate<=addDays(today,s.settings.dueDays)))notify(t.ownerId,t.dueDate<today?'Vencimiento':'Próximo vencimiento','tasks',t.id,t.code+': '+t.title+' · '+t.dueDate);
