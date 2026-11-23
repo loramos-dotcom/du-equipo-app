@@ -7,7 +7,10 @@ export function InstitutionalSignature(){
 }
 
 export function AppWordmark(){
- return <span className="app-wordmark"><strong>DU Equipo</strong><small>Delivery Unit · Educación</small></span>;
+ return <>
+  <img className="app-monogram" src="/brand/du-mark.svg?v=2" width="40" height="40" alt=""/>
+  <span className="app-wordmark"><strong>DU Equipo</strong><small>Delivery Unit · Educación</small></span>
+ </>;
 }
 
 /** A downloaded minute keeps the institutional font and full vector signature offline. */
