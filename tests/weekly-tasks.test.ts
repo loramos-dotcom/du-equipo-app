@@ -92,3 +92,28 @@ test('Las completadas usan el límite de lunes en Buenos Aires y conservan cada 
  assert.deepEqual(weeklyTasks(s,week,owner,today).selected.map(row=>row.task.id).sort(),['last','monday']);
  assert.deepEqual(weeklyTasks(s,week,'persona06',today).selected.map(row=>row.task.id),['other']);
 });
+
+test('Las recurrencias abiertas de la semana aparecen para el responsable y sus colaboradores',()=>{
+ const s=fixture(),collaborator='persona06';
+ s.data.tasks=[
+  {id:'this-week',version:1,title:'Ocurrencia actual',ownerId:owner,collaborators:[collaborator],status:'Pendiente',priority:'Media',recurrenceId:'template',occurrenceDate:week},
+  {id:'last-week',version:1,title:'Ocurrencia anterior',ownerId:owner,collaborators:[collaborator],status:'Pendiente',recurrenceId:'template',occurrenceDate:'2026-11-02'},
+  {id:'next-week',version:1,title:'Ocurrencia siguiente',ownerId:owner,collaborators:[collaborator],status:'Pendiente',recurrenceId:'template',occurrenceDate:'2026-11-16'},
+  {id:'cancelled',version:1,title:'Ocurrencia cancelada',ownerId:owner,collaborators:[collaborator],status:'Cancelada',recurrenceId:'template',occurrenceDate:week},
+  {id:'regular',version:1,title:'Pendiente común',ownerId:owner,collaborators:[collaborator],status:'Pendiente'}
+ ];
+ const before=structuredClone(s);
+ const primary=weeklyTasks(s,week,owner,today);
+ assert.deepEqual(primary.selected.map(row=>row.task.id),['this-week']);
+ assert.equal(primary.selected[0].priority,false);
+ assert.deepEqual(primary.rest.map(row=>row.task.id).sort(),['last-week','next-week','regular']);
+ const shared=weeklyTasks(s,week,collaborator,today);
+ assert.deepEqual(shared.selected.map(row=>[row.task.id,row.recurringCollaborator]),[['this-week',true]]);
+ assert.equal(shared.rest.length,0);
+ assert.equal(weeklyTasks(s,week,'persona02',today).selected.length,0);
+ assert.deepEqual(s,before);
+
+ const moved=move(s,'this-week',false);
+ assert.equal(weeklyTasks(moved,week,owner,today).selected.length,0);
+ assert.deepEqual(weeklyTasks(moved,week,collaborator,today).selected.map(row=>row.task.id),['this-week']);
+});
