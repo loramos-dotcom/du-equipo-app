@@ -40,5 +40,31 @@ try{
   assert.equal(await boards.getByRole('heading',{name:title,exact:true}).count(),1);
   assert.equal(await calendar().getByRole('heading',{name:title,exact:true}).count(),2);
  });
- await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'test-results/calendario-mi-semana-movil.png',fullPage:true});assert.deepEqual(errors,[]);await writeFile('test-results/calendar-browser.json',JSON.stringify({passed,errors},null,2));
+ await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'test-results/calendario-mi-semana-movil.png',fullPage:true});
+ await check('La DU muestra el tablero del referente arriba de su agenda y refleja una reprogramación',async()=>{
+  await page.setViewportSize({width:1440,height:1000});
+  await page.goto(origin+'/#Equipo');
+  await page.getByRole('heading',{name:'La DU',exact:true}).waitFor();
+  const owner=state.data.members.find(member=>member.id==='persona05');
+  const responsible=state.data.members.find(member=>member.id==='persona06');
+  const card=name=>page.getByRole('article').filter({has:page.getByRole('heading',{name,exact:true})});
+  const responsibleCard=card(responsible.name);
+  const section=responsibleCard.getByRole('region',{name:'Tableros de la semana'});
+  await section.getByText('Tablero de Área de prueba',{exact:true}).waitFor();
+  assert.equal(await card(owner.name).getByRole('region',{name:'Tableros de la semana'}).count(),0);
+  assert.equal(await responsibleCard.locator('.people-boards + .people-presence').count(),1);
+  assert.equal(await section.getByRole('listitem').count(),1);
+  assert.match(await section.locator('time').innerText(),/10:00$/);
+  const connection=connections.get(owner.id);
+  const [first,...rest]=connection.events;
+  const newDay=addDays(weekStart(dateInBA()),1);
+  connections.set(owner.id,{...connection,events:[{...first,start:newDay+'T16:00:00Z',end:newDay+'T17:00:00Z'},...rest],revision:crypto.randomUUID()});
+  await page.reload();
+  await section.locator('time[datetime="'+newDay+'T16:00:00Z"]').waitFor();
+  assert.match(await section.locator('time').innerText(),/13:00$/);
+  assert.equal(await section.getByRole('listitem').count(),1);
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ });
+ assert.deepEqual(errors,[]);await writeFile('test-results/calendar-browser.json',JSON.stringify({passed,errors},null,2));
 }catch(error){await page.screenshot({path:'test-results/calendar-failure.png',fullPage:true});console.log('Pending requests', [...pending]);console.log((await page.locator('main').innerText()).slice(-2500));throw error;}finally{await browser.close();}

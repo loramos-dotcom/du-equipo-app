@@ -172,6 +172,14 @@
 .people-work-mark{display:grid;place-items:center;flex-shrink:0;width:17px;height:17px;border:1px solid #bad0dc;border-radius:50%;color:var(--teal);margin-top:2px;font-size:14px}
 .is-commitment .people-work-mark{background:var(--yellow-soft);border-color:#d5ae1b;border-radius:4px}
 .people-work-mark.is-done{background:#e7f2ed;border-color:#6b9e87;color:#236546}
+.people-boards{border-top:1px solid var(--desk-border);padding:12px 0}
+.people-boards h3{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12px;font-weight:600;color:var(--ink)}
+.people-boards h3 svg{flex-shrink:0}
+.people-boards ul{display:grid;gap:8px;list-style:none;padding:0;margin:0}
+.people-boards li{display:flex;align-items:baseline;justify-content:space-between;gap:2px 10px;flex-wrap:wrap;font-size:12px}
+.people-boards li strong{font-weight:500;overflow-wrap:anywhere}
+.people-boards time{font-size:11px;color:var(--muted)}
+.people-boards+.people-presence{margin-top:0}
 .people-presence{display:flex;align-items:center;gap:9px;border-top:1px solid var(--desk-border);padding:16px 0 11px}
 .people-presence>.dot{background:#92a4b1;border:0;flex-shrink:0;width:8px;height:8px}
 .people-presence.available>.dot{background:#347b5d}
