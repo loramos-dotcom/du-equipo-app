@@ -1,10 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {CalendarDays,ExternalLink,FileText,RefreshCw,Unplug,X,Check,Download,Settings2} from 'lucide-react';
-import {addDays,formatDate,normalize,weekStart} from '../shared/model';
+import {formatDate,normalize,weekStart} from '../shared/model';
 import type {Row,Snapshot} from '../shared/model';
 import {calendarDay,calendarMinutesTemplate,canEditCalendarMinutes} from '../shared/calendar';
 import type {TeamEvent,CalendarChoice} from '../shared/calendar';
-import {boardMeetings,boardPreparationProject} from '../shared/board-followups';
+import {weeklyBoardMeetings} from '../shared/board-followups';
+import type {SharedBoardEvent} from '../shared/board-followups';
 import {minutesDocument} from './Brand';
 import './team-calendar.css';
 type Status={configured:boolean;connected:boolean;email?:string;memberId?:string;accountEmail?:string;selected?:CalendarChoice[];syncedAt?:string;syncError?:string};
@@ -12,19 +13,16 @@ type Props={members:Row[];areas:Row[];projects:Row[];meetings:Row[];snapshots:Sn
 async function request(path:string,body?:unknown){const r=await fetch('/api/calendar/'+path,{...(body!==undefined?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{}),cache:'no-store'}),value=await r.json();if(!r.ok)throw Error(value.error??'No pudimos actualizar el calendario.');return value;}
 export default function TeamCalendar(props:Props){
  const {members,meetings,actorId,coordinator,today}=props,[status,setStatus]=useState<Status|null>(null),[events,setEvents]=useState<TeamEvent[]>([]),[connections,setConnections]=useState<{memberId:string;syncedAt:string|null;syncError:string|null}[]>([]),[choices,setChoices]=useState<CalendarChoice[]|null>(null),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[query,setQuery]=useState(''),[person,setPerson]=useState(actorId),[period,setPeriod]=useState('upcoming'),[opened,setOpened]=useState<{event?:TeamEvent;meeting?:Row}|null>(null),[disconnect,setDisconnect]=useState(false),[accountExpanded,setAccountExpanded]=useState(false),loaded=useRef(false);
- const [boardEvents,setBoardEvents]=useState<{event:TeamEvent;calendarOwnerId:string}[]>([]);
+ const [boardEvents,setBoardEvents]=useState<SharedBoardEvent[]>([]);
  const name=(id:string)=>members.find(m=>m.id===id)?.name??'Integrante';
  async function load(){const [s,shared]=await Promise.all([request('status'),request('events')]);setStatus(s);setSelected((s.selected??[]).map((c:CalendarChoice)=>c.id));setEvents(shared.events);setBoardEvents(shared.boardEvents??[]);setConnections(shared.connections);return s as Status;}
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  useEffect(()=>{let stop=false;void action(async()=>{const s=await load();if(!loaded.current){loaded.current=true;if(s.configured){await request('refresh',{});if(!stop)await load();}}});const timer=setInterval(()=>{if(document.visibilityState==='visible')void action(async()=>{await request('refresh',{});if(!stop)await load();});},300000);return()=>{stop=true;clearInterval(timer);};},[]);
  const synced=!!(status?.connected&&status.selected?.length&&status.syncedAt&&!status.syncError&&!error.includes('Google requiere')),showAccount=!synced||accountExpanded;
  const meetingByEvent=new Map(meetings.filter(m=>m.calendarEventKey).map(m=>[m.calendarEventKey,m])),eventIds=new Set(events.map(e=>e.id)),orphanMeetings=meetings.filter(m=>m.calendarEventKey&&!eventIds.has(m.calendarEventKey));
- const preparationProject=boardPreparationProject(props.projects);
- const source=preparationProject?.createdBy??preparationProject?.leadId;
- const thisWeek=weekStart(today),nextWeek=addDays(thisWeek,7);
  const thisWeekBoards=period==='all'||period==='upcoming'
-  ?boardMeetings(boardEvents.filter(row=>row.calendarOwnerId===source).map(row=>row.event),props.areas,members)
-   .filter(({event,area,responsible,day})=>day>=thisWeek&&day<nextWeek&&(!person||responsible.id===person)&&
+  ?weeklyBoardMeetings(boardEvents,props.projects,props.areas,members,weekStart(today))
+   .filter(({event,area,responsible})=>(!person||responsible.id===person)&&
     (!query||normalize(event.title+' '+responsible.name+' '+area.name).includes(normalize(query))))
   :[];
  const displayedBoards=new Set(thisWeekBoards.map(({event})=>event.id));

@@ -1,7 +1,9 @@
 import {calendarDay} from './calendar.ts';
 import type {TeamEvent} from './calendar.ts';
-import {normalize} from './model.ts';
+import {addDays,normalize} from './model.ts';
 import type {Row} from './model.ts';
+
+export type SharedBoardEvent={event:TeamEvent;calendarOwnerId:string};
 
 export function boardAreaId(title:string):string|undefined{
  const text=normalize(title).trim().replace(/^[^a-z0-9]+/,'');
@@ -28,4 +30,13 @@ export function boardMeetings(events:TeamEvent[],areas:Row[],members:Row[]){
   const responsible=area&&members.find(row=>row.id===area.leadId&&row.active&&!row.deletedAt);
   return area&&responsible?[{event,area,responsible,day:calendarDay(event.start,event.allDay)}]:[];
  }).sort((a,b)=>a.event.start.localeCompare(b.event.start));
+}
+
+export function weeklyBoardMeetings(events:SharedBoardEvent[],projects:Row[],areas:Row[],members:Row[],week:string){
+ const project=boardPreparationProject(projects);
+ const calendarOwnerId=project?.createdBy??project?.leadId;
+ if(!calendarOwnerId)return [];
+ const nextWeek=addDays(week,7);
+ const shared=events.filter(row=>row.calendarOwnerId===calendarOwnerId).map(row=>row.event);
+ return boardMeetings(shared,areas,members).filter(({day})=>day>=week&&day<nextWeek);
 }
