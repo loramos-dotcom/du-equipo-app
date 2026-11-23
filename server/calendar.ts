@@ -2,9 +2,12 @@ import {createCipheriv,createDecipheriv,createHash,randomBytes,timingSafeEqual} 
 import {parseCookieHeader,serializeCookieHeader} from '@supabase/ssr';
 import {DomainError,execute} from '../shared/domain.ts';
 import {authorizedMember} from '../shared/team.ts';
-import {mergeCalendarEvents} from '../shared/calendar.ts';
+import {calendarDay,mergeCalendarEvents} from '../shared/calendar.ts';
+import {boardAreaId} from '../shared/board-followups.ts';
+import {primaryBoardEvents,primaryCalendar,reconcileBoardPreparation} from './board-preparation.ts';
 import type {CalendarChoice,TeamEvent} from '../shared/calendar.ts';
 import type {VerifiedIdentity} from '../shared/team.ts';
+import {addDays,dateInBA,weekStart} from '../shared/model.ts';
 import type {Row} from '../shared/model.ts';
 import type {Store} from './api.ts';
 
@@ -47,8 +50,13 @@ export async function syncCalendar(store:CalendarStore,config:Config,connection:
  if(!await store.saveCalendar(config.workspace,claimed,connection.revision))return null;
  try{
   const token=await accessToken(config,claimed,transport),events:TeamEvent[]=[],timeMin=new Date(now.getTime()-180*86400000).toISOString(),timeMax=new Date(now.getTime()+365*86400000).toISOString();
-  for(const calendar of claimed.selected){let page='';const seen=new Set<string>();do{const url=new URL('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(calendar.id)+'/events');url.search=new URLSearchParams({timeMin,timeMax,singleEvents:'true',orderBy:'startTime',maxResults:'2500',timeZone:'America/Argentina/Buenos_Aires',...(page?{pageToken:page}:{})}).toString();const result=await google(transport,url,{headers:{authorization:'Bearer '+token}});for(const raw of result.items??[]){const event=normalizeCalendarEvent(raw,members);if(event)events.push(event);}page=result.nextPageToken??'';if(page&&seen.has(page))throw Error('calendar-pagination');seen.add(page);}while(page);}
-  const next={...claimed,events:mergeCalendarEvents([{memberId:claimed.memberId,events}]),syncedAt:now.toISOString(),syncError:null,revision:crypto.randomUUID()};if(!await store.saveCalendar(config.workspace,next,claimed.revision))throw new DomainError('Tu conexión cambió durante la actualización. Volvé a cargar.',409);return next;
+  for(const calendar of claimed.selected){let page='';const seen=new Set<string>();do{const url=new URL('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(calendar.id)+'/events');url.search=new URLSearchParams({timeMin,timeMax,singleEvents:'true',orderBy:'startTime',maxResults:'2500',timeZone:'America/Argentina/Buenos_Aires',...(page?{pageToken:page}:{})}).toString();const result=await google(transport,url,{headers:{authorization:'Bearer '+token}});for(const raw of result.items??[]){const event=normalizeCalendarEvent(raw,members);if(event)events.push({...event,primaryCalendar:primaryCalendar(calendar,claimed.email)});}page=result.nextPageToken??'';if(page&&seen.has(page))throw Error('calendar-pagination');seen.add(page);}while(page);}
+  const primaryBoards=new Map(events.filter(event=>event.primaryCalendar&&boardAreaId(event.title)).map(event=>[event.id,event]));
+  const merged=mergeCalendarEvents([{memberId:claimed.memberId,events}]).map(event=>{
+   const primary=primaryBoards.get(event.id);
+   return primary?{...primary,memberIds:event.memberIds}:event;
+  }).sort((a,b)=>a.start.localeCompare(b.start));
+  const next={...claimed,events:merged,syncedAt:now.toISOString(),syncError:null,revision:crypto.randomUUID()};if(!await store.saveCalendar(config.workspace,next,claimed.revision))throw new DomainError('Tu conexión cambió durante la actualización. Volvé a cargar.',409);return next;
  }catch(error){
   await store.saveCalendar(config.workspace,{...claimed,syncError:'No se pudo actualizar. Volvé a conectar o actualizá tu calendario.',revision:crypto.randomUUID()},claimed.revision);
   throw error;
@@ -58,7 +66,11 @@ export async function syncTeamCalendars(store:CalendarStore,env:Record<string,st
  const config=calendarConfig(env);if(!config)return {status:'Pendiente de configuración',updated:0,errors:0};
  const access=store.loadAccess?await store.loadAccess(config.workspace):await store.load(config.workspace);if(!access)throw Error('calendar-workspace');const members=access.data.members,connections=(await store.listCalendars(config.workspace)).filter(c=>c.selected.length&&members.some(m=>m.active&&m.id===c.memberId&&m.email?.toLowerCase()===c.email.toLowerCase()));let updated=0,errors=0,skipped=0;
  for(let i=0;i<connections.length;i+=3)await Promise.all(connections.slice(i,i+3).map(async connection=>{try{if(await syncCalendar(store,config,connection,members,transport))updated++;else skipped++;}catch{errors++;}}));
- return {status:errors?'Completado con observaciones':updated?'Actualizado':skipped?'Las agendas se actualizan como máximo cada cinco minutos.':'No hay calendarios compartidos.',updated,errors,skipped};
+ let boardPreparation;
+ if(connections.some(c=>c.selected.some(choice=>primaryCalendar(choice,c.email)))){
+  try{boardPreparation=await reconcileBoardPreparation(store,config.workspace);}catch{errors++;}
+ }
+ return {status:errors?'Completado con observaciones':updated?'Actualizado':skipped?'Las agendas se actualizan como máximo cada cinco minutos.':'No hay calendarios compartidos.',updated,errors,skipped,...(boardPreparation?{boardPreparation}:{})};
 }
 export async function calendarRequest(request:Request,identity:VerifiedIdentity,member:Row,store:CalendarStore,env:Record<string,string|undefined>,transport:typeof fetch=fetch){
  const url=new URL(request.url),config=calendarConfig(env),workspace=env.DU_WORKSPACE_ID!;
@@ -83,7 +95,12 @@ export async function calendarRequest(request:Request,identity:VerifiedIdentity,
  const access=store.loadAccess?await store.loadAccess(workspace):await store.load(workspace);if(!access)throw Error('calendar-workspace');const members=access.data.members;
  if(url.pathname==='/api/calendar/events'){
   const connections=(await store.listCalendars(workspace)).filter(c=>members.some(m=>m.active&&m.id===c.memberId&&m.email?.toLowerCase()===c.email.toLowerCase()));
-  return Response.json({events:mergeCalendarEvents(connections.map(c=>({memberId:c.memberId,events:c.events}))),connections:connections.map(c=>({memberId:c.memberId,syncedAt:c.syncedAt,syncError:c.syncError}))},{headers});
+  const week=weekStart(dateInBA()),nextWeek=addDays(week,7);
+  const boardEvents=connections.flatMap(c=>primaryBoardEvents(c).flatMap(event=>{
+   const day=calendarDay(event.start,event.allDay);
+   return day>=week&&day<nextWeek?[{calendarOwnerId:c.memberId,event}]:[];
+  }));
+  return Response.json({boardEvents,events:mergeCalendarEvents(connections.map(c=>({memberId:c.memberId,events:c.events}))),connections:connections.map(c=>({memberId:c.memberId,syncedAt:c.syncedAt,syncError:c.syncError}))},{headers});
  }
  if(url.pathname==='/api/calendar/refresh'&&request.method==='POST'){const body=await request.json(),result=await syncTeamCalendars(store,env,transport,body.force===true);return Response.json(result,{headers});}
  if(url.pathname==='/api/calendar/minutes'&&request.method==='POST'){

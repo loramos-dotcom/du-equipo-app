@@ -1,5 +1,5 @@
-import {dateInBA,addDays} from '../shared/model.ts';
-import assert from'node:assert/strict';import{createRequire}from'node:module';import{mkdir,writeFile,readFile}from'node:fs/promises';import{randomBytes}from'node:crypto';import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import{api}from'../server/api.ts';import{calendarRequest,sealCalendar}from'../server/calendar.ts';
+import {dateInBA,addDays,weekStart} from '../shared/model.ts';
+import assert from'node:assert/strict';import{createRequire}from'node:module';import{mkdir,writeFile,readFile}from'node:fs/promises';import{randomBytes}from'node:crypto';import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import{api}from'../server/api.ts';import{calendarRequest,normalizeCalendarEvent,sealCalendar}from'../server/calendar.ts';
 const require=createRequire(import.meta.url),{chromium}=require('playwright'),origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4322',email='persona05@bue.edu.ar',env={APP_ORIGIN:origin,DU_WORKSPACE_ID:'calendar-browser',GOOGLE_CALENDAR_CLIENT_ID:'fixture-calendar',GOOGLE_CALENDAR_CLIENT_SECRET:'fixture-only',DU_CALENDAR_SEAL_KEY:randomBytes(32).toString('base64')};
 const roster=JSON.parse(await(await import('node:fs/promises')).readFile('config/team-authorized.json','utf8'));let state=institutionalState('calendar-browser',roster.emails,roster.operator,new Date('2026-10-21T15:00:00Z'),roster.initialCoordinator),identity={id:'user-persona05',email,provider:'google',verified:true};const connections=new Map(),store={load:async()=>structuredClone(state),loadAccess:async()=>structuredClone(state),create:async()=>{},save:async(_k,revision,next)=>{if(state.revision!==revision)return false;state=structuredClone(next);return true;},readCalendar:async(_w,id)=>structuredClone(connections.get(id)??null),listCalendars:async()=>structuredClone([...connections.values()]),saveCalendar:async(_w,value,expected)=>{if((connections.get(value.memberId)?.revision??null)!==expected)return false;connections.set(value.memberId,structuredClone(value));return true;},deleteCalendar:async(_w,id,revision)=>connections.get(id)?.revision===revision&&connections.delete(id)};
 const raw=(patch={})=>({id:'shared-event',iCalUID:'shared-fixture',summary:'Seguimiento de proyectos',start:{dateTime:addDays(dateInBA(),2)+'T10:00:00-03:00'},end:{dateTime:addDays(dateInBA(),2)+'T11:00:00-03:00'},organizer:{email},attendees:[{email},{email:'persona06@bue.edu.ar'}],updated:'2026-10-21T12:00:00Z',htmlLink:'https://calendar.google.com/calendar/event?eid=fixture',hangoutLink:'https://meet.google.com/aaa-bbbb-ccc',...patch});
@@ -20,5 +20,25 @@ try{
  identity={id:'user-persona05',email,provider:'google',verified:true};await page.reload();await calendar().getByRole('combobox',{name:'Período de reuniones'}).selectOption('upcoming');await calendar().getByRole('button',{name:'Ver minuta',exact:true}).waitFor();await page.screenshot({path:'test-results/calendario-mi-semana-escritorio.png',fullPage:true});
  await check('Desconectar retira los eventos compartidos y conserva las minutas',async()=>{await calendar().getByRole('button',{name:'Configurar Google Calendar',exact:true}).click();await calendar().getByRole('button',{name:'Desconectar',exact:true}).click();await page.getByRole('dialog',{name:'Desconectar Google Calendar',exact:true}).getByRole('button',{name:'Desconectar mi calendario',exact:true}).click();await calendar().getByRole('link',{name:'Conectar mi Google Calendar',exact:true}).waitFor();assert.equal(connections.size,0);assert.equal(await calendar().getByRole('button',{name:'Ver minuta',exact:true}).count(),1);assert.equal(state.data.meetings[0].minutes,text);});
  await check('Compromisos y reuniones conviven en Mi semana sin alterar la vista de Equipo',async()=>{await page.getByRole('tab',{name:'Tareas',exact:true}).click();assert.equal(await calendar().count(),0);await page.getByRole('tab',{name:'Reuniones y minutas',exact:true}).click();await calendar().getByRole('heading',{name:'Tus reuniones',exact:true}).waitFor();});
+ await check('Los tableros vigentes aparecen una sola vez y el referente los ve aunque no esté invitado',async()=>{
+  const owner=state.data.members.find(member=>member.id==='persona05');
+  const responsible=state.data.members.find(member=>member.id==='persona06');
+  state.data.areas=[{id:'sstedu',version:1,name:'Área de prueba',active:true,leadId:responsible.id}];
+  state.data.projects=[{id:'fixture-recurring-project',version:1,title:'Tareas recurrentes',createdBy:owner.id,leadId:owner.id,status:'Activo',members:[owner.id]}];
+  const thisWeek=weekStart(dateInBA());
+  const title='🔸 Tablero SSTEDU - Seg. Quincenal';
+  const event=(day,id)=>normalizeCalendarEvent(raw({id,iCalUID:id,summary:title,start:{dateTime:day+'T10:00:00-03:00'},end:{dateTime:day+'T11:00:00-03:00'},attendees:[{email}]}),state.data.members);
+  connections.set(owner.id,{memberId:owner.id,email,sealed:sealCalendar({email,refreshToken:'private-fixture'},env.DU_CALENDAR_SEAL_KEY),selected:[{id:'primary',name:'Principal',primary:true}],events:[event(thisWeek,'this-week-board'),event(addDays(thisWeek,7),'next-week-board')],syncedAt:new Date().toISOString(),syncError:null,revision:crypto.randomUUID()});
+  await page.reload();
+  const person=calendar().getByRole('combobox',{name:'Reuniones de integrante'});
+  await person.selectOption(responsible.id);
+  const boards=calendar().getByRole('region',{name:'Tableros de la semana'});
+  await boards.getByRole('heading',{name:title,exact:true}).waitFor();
+  assert.equal(await boards.getByRole('article').count(),1);
+  assert.equal(await boards.getByText(responsible.name,{exact:true}).count(),1);
+  await person.selectOption('');
+  assert.equal(await boards.getByRole('heading',{name:title,exact:true}).count(),1);
+  assert.equal(await calendar().getByRole('heading',{name:title,exact:true}).count(),2);
+ });
  await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'test-results/calendario-mi-semana-movil.png',fullPage:true});assert.deepEqual(errors,[]);await writeFile('test-results/calendar-browser.json',JSON.stringify({passed,errors},null,2));
 }catch(error){await page.screenshot({path:'test-results/calendar-failure.png',fullPage:true});console.log('Pending requests', [...pending]);console.log((await page.locator('main').innerText()).slice(-2500));throw error;}finally{await browser.close();}

@@ -30,7 +30,8 @@ export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateI
   const open=!task.archived&&!['Terminada','Cancelada'].includes(task.status);
   const completed=completedInWeek(task,weekId);
   const selected=Object.hasOwn(selections,task.id)?selections[task.id]===true:null;
-  const automatic=(recursThisWeek||currentOrFuture&&priority)&&(open||completed)&&!task.archived;
+  const boardPrepThisWeek=typeof task.boardMeetingDate==='string'&&task.dueDate>=weekId&&task.dueDate<nextWeek;
+  const automatic=(recursThisWeek||boardPrepThisWeek||currentOrFuture&&priority)&&(open||completed)&&!task.archived;
   if(commitment||own&&completed||!task.archived&&(selected===true||selected!==false&&automatic)){
    chosen.push({task,commitment,priority,...(recurringCollaborator?{recurringCollaborator:true}:{})});
   }

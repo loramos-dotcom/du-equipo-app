@@ -1,11 +1,92 @@
 import test from'node:test';import assert from'node:assert/strict';import{randomBytes}from'node:crypto';import{readFile}from'node:fs/promises';import{PGlite}from'@electric-sql/pglite';
 import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';import{execute,publicState}from'../shared/domain.ts';import{preferredMeeting}from'../shared/views.ts';import{calendarDay,calendarPresence,mergeCalendarEvents}from'../shared/calendar.ts';import{calendarRequest,calendarScopes,calendarConfig,normalizeCalendarEvent,sealCalendar,openCalendar,syncCalendar}from'../server/calendar.ts';import type{CalendarConnection,CalendarStore}from'../server/calendar.ts';import type{State}from'../shared/model.ts';
+import {boardAreaId,boardMeetings} from '../shared/board-followups.ts';
+import {weeklyTasks} from '../shared/weekly-tasks.ts';
+import {reconcileBoardPreparation} from '../server/board-preparation.ts';
+import {metadata} from '../server/relational.ts';
 const now=new Date('2026-10-21T15:00:00Z'),email='persona05@bue.edu.ar',env={APP_ORIGIN:'https://du.example.edu',DU_WORKSPACE_ID:'du-test',GOOGLE_CALENDAR_CLIENT_ID:'calendar-test',GOOGLE_CALENDAR_CLIENT_SECRET:'fixture-only',DU_CALENDAR_SEAL_KEY:randomBytes(32).toString('base64')},identity={id:'user-persona05',email,provider:'google' as const,verified:true as const};
 function fixture(){let state=institutionalState('du-test',{persona01:'persona01@bue.edu.ar',persona05:email,persona06:'persona06@bue.edu.ar'},'persona01@bue.edu.ar',now);const connections=new Map<string,CalendarConnection>(),store:CalendarStore={load:async()=>structuredClone(state),loadAccess:async()=>structuredClone(state),create:async()=>{},save:async(_k,revision,next)=>{if(state.revision!==revision)return false;state=structuredClone(next);return true;},readCalendar:async(_w,id)=>structuredClone(connections.get(id)??null),listCalendars:async()=>structuredClone([...connections.values()]),saveCalendar:async(_w,value,expected)=>{if((connections.get(value.memberId)?.revision??null)!==expected)return false;connections.set(value.memberId,structuredClone(value));return true;},deleteCalendar:async(_w,id,version)=>connections.get(id)?.revision===version&&connections.delete(id)};return {get state(){return state;},store,connections,member:state.data.members.find(m=>m.id==='persona05')!};}
 const raw=(patch:any={})=>({id:'event-1',iCalUID:'shared-1',summary:'Revisión del equipo',start:{dateTime:'2026-10-22T10:00:00-03:00'},end:{dateTime:'2026-10-22T11:00:00-03:00'},updated:'2026-10-21T12:00:00Z',organizer:{email},attendees:[{email},{email:'persona06@bue.edu.ar'}],htmlLink:'https://calendar.google.com/calendar/event?eid=fixture',hangoutLink:'https://meet.google.com/aaa-bbbb-ccc',...patch});
 const json=(value:unknown,status=200)=>Response.json(value,{status});
 const connection=():CalendarConnection=>({memberId:'persona05',email,sealed:sealCalendar({email,refreshToken:'private-fixture'},env.DU_CALENDAR_SEAL_KEY),selected:[],events:[],syncedAt:null,syncError:null,revision:crypto.randomUUID()});
 const req=(path:string,body?:any,cookie?:string)=>new Request(env.APP_ORIGIN+path,{...(body!==undefined?{method:'POST',body:JSON.stringify(body)}:{}),headers:{origin:env.APP_ORIGIN,'content-type':'application/json',...(cookie?{cookie}:{})}});
+
+test('Los tableros se vinculan con el área por su título y se muestran al referente, aunque no sea invitado',()=>{
+ const titles={
+  '⚪Tablero SSPIE - Seg. quincenal':'sspie',
+  '🟠Tablero Agencia - Seg. quincenal':'agencia',
+  '🔴Tablero Gestión del Aprendizaje - SSGDA - Seg. Quincenal':'ssgda',
+  '🟡Tablero SSGEFYAR/SSGAD - Seg. quincenal':'ssgad',
+  '🔵Tablero Privada - Seg. quincenal':'privada',
+  '🟢Tablero SSTEDU - Seg. quincenal':'sstedu',
+  '🟣Tablero UEICEE - Seg. Quincenal':'ueicee',
+  '🔸Seg. Mensual Uni de la Ciudad':'universidad'
+ };
+ for(const [title,area] of Object.entries(titles))assert.equal(boardAreaId(title),area);
+ for(const title of ['REPROGRAMAR | Tablero SSPIE - Seg. quincenal','SUSPENDIDA Tablero UEICEE - Seg. quincenal','UNI - Gabriela Azar Quincenal','Tablero de otra institución - Seg. quincenal']){
+  assert.equal(boardAreaId(title),undefined);
+ }
+ const f=fixture(),event=normalizeCalendarEvent(raw({summary:'🔸Seg. Mensual Uni de la Ciudad',attendees:[]}),f.state.data.members)!;
+ const other=f.state.data.members[0],area={id:'universidad',version:1,name:'Universidad',active:true,leadId:other.id};
+ assert.equal(boardMeetings([event],[area],f.state.data.members)[0].responsible.id,other.id);
+});
+
+test('La sincronización genera un solo temario por ocurrencia, mueve solo tareas abiertas y conserva cierres',async()=>{
+ const f=fixture(),clock=new Date('2026-10-21T15:00:00Z');
+ f.state.settings.requireTaskProject=true;
+ f.state.data.projects.push({id:'routines',version:1,title:'Tareas recurrentes',status:'Activo',createdBy:'persona01',leadId:'persona06',members:['persona01']});
+ f.state.data.areas.push({id:'universidad',version:1,name:'Universidad',active:true,leadId:'persona05'});
+ f.state.data.areaAssignments.push({id:'lead-change',version:1,areaId:'universidad',memberId:'persona06',assignmentRole:'principal',validFrom:'2026-10-20'});
+ const owner=f.state.data.members.find(row=>row.id==='persona01')!;
+ const board=(day:string,originalDay='2026-10-28')=>normalizeCalendarEvent(raw({
+  summary:'🔸Seg. Mensual Uni de la Ciudad',originalStartTime:{dateTime:originalDay+'T14:00:00-03:00'},
+  start:{dateTime:day+'T14:00:00-03:00'},end:{dateTime:day+'T15:00:00-03:00'}
+ }),f.state.data.members)!;
+ const initial=board('2026-10-28');
+ const source:CalendarConnection={...connection(),memberId:owner.id,email:owner.email,selected:[{id:owner.email,name:'Principal'}],
+  syncedAt:clock.toISOString(),events:[initial,board('2026-10-22','2026-10-22'),board('2026-11-04','2026-11-04')]};
+ f.connections.set(owner.id,source);
+ const result=await reconcileBoardPreparation(f.store,'du-test',clock);
+ assert.deepEqual(result,{created:1,updated:0});
+ const taskId='board-preparation:'+initial.id;
+ const current=()=>f.state.data.tasks.find(row=>row.id===taskId)!;
+ assert.equal(current().title,'Armar temario para el Tablero de Universidad');
+ assert.equal(current().ownerId,'persona06');
+ assert.equal(current().dueDate,'2026-10-21');
+ assert.equal(current().projectId,'routines');
+ assert.ok(weeklyTasks(f.state,'2026-10-19','persona06','2026-10-21').selected.some(row=>row.task.id===taskId));
+ const revision=f.state.revision;
+ assert.deepEqual(await reconcileBoardPreparation(f.store,'du-test',clock),{created:0,updated:0});
+ assert.equal(f.state.revision,revision);
+ const moved=board('2026-10-29');
+ assert.equal(moved.id,initial.id);
+ f.connections.set(owner.id,{...source,revision:'new',events:[moved]});
+ assert.deepEqual(await reconcileBoardPreparation(f.store,'du-test',clock),{created:0,updated:1});
+ assert.equal(current().dueDate,'2026-10-22');
+ assert.equal(current().originalDueDate,'2026-10-21');
+ current().status='Terminada';current().completedAt=clock.toISOString();
+ const finished=structuredClone(current());
+ f.connections.set(owner.id,{...source,revision:'newer',events:[board('2026-10-30')]});
+ assert.deepEqual(await reconcileBoardPreparation(f.store,'du-test',clock),{created:0,updated:0});
+ assert.deepEqual(current(),finished);
+ f.state.audit.push({...f.state.audit.find(row=>row.entityId===taskId)!,action:'eliminar definitivamente',before:current()});
+ f.state.data.tasks=f.state.data.tasks.filter(row=>row.id!==taskId);
+ f.state.ledger=metadata(f.state).ledger;
+ f.state.audit=[];
+ assert.deepEqual(await reconcileBoardPreparation(f.store,'du-test',clock),{created:0,updated:0});
+ assert.equal(current(),undefined);
+});
+
+test('Un evento de otro calendario o de una conexión sin actualizar no crea temarios',async()=>{
+ const f=fixture(),owner=f.state.data.members.find(row=>row.id==='persona01')!;
+ f.state.data.projects.push({id:'routines',version:1,title:'Tareas recurrentes',status:'Activo',createdBy:owner.id});
+ const event=normalizeCalendarEvent(raw({summary:'🔸Seg. Mensual Uni de la Ciudad',start:{dateTime:'2026-10-29T14:00:00-03:00'},end:{dateTime:'2026-10-29T15:00:00-03:00'}}),f.state.data.members)!;
+ const source={...connection(),memberId:owner.id,email:owner.email,selected:[{id:owner.email,name:'Principal'},{id:'otro',name:'Otro'}],syncedAt:now.toISOString()};
+ f.connections.set(owner.id,{...source,events:[{...event,primaryCalendar:false}]});
+ assert.equal(await reconcileBoardPreparation(f.store,'du-test',now),undefined);
+ f.connections.set(owner.id,{...source,events:[{...event,primaryCalendar:true}],syncError:'Error de conexión'});
+ assert.equal(await reconcileBoardPreparation(f.store,'du-test',now),undefined);
+});
 test('Calendar conserva horario BA, excluye privados, cancelados, ausencias y rechazos',()=>{const f=fixture(),event=normalizeCalendarEvent(raw(),f.state.data.members)!;assert.equal(event.start,'2026-10-22T13:00:00Z');assert.deepEqual(event.memberIds,['persona05','persona06']);for(const patch of [{visibility:'private'},{visibility:'confidential'},{status:'cancelled'},{eventType:'outOfOffice'},{attendees:[{self:true,responseStatus:'declined'}]}])assert.equal(normalizeCalendarEvent(raw(patch),f.state.data.members),null);assert.equal(normalizeCalendarEvent(raw({hangoutLink:'javascript:alert(1)'}),f.state.data.members)!.meetUrl,'');});
 test('Los calendarios elegidos incluyen citas sin invitados y mantienen fuera los eventos privados y confidenciales',async()=>{
  const f=fixture(),own=connection();own.selected=[{id:'primary',name:'Agenda elegida'}];f.connections.set(own.memberId,own);
