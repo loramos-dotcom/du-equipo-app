@@ -17,7 +17,9 @@ export default function TeamPeople({state,members,week,today,agenda,coordinator,
  return <><div className="people-grid">{members.map(m=>{
   const {selected}=weeklyTasks(state,week,m.id,today);
   const presence=calendarPresence(m.id,agenda.events,agenda.connections,agenda.now,!!agenda.error),areas=teamAreas.filter(a=>a.active&&(a.leadId===m.id||(a.substitutes??[]).includes(m.id)));
-  const boards=weeklyBoards.filter(({responsible})=>responsible.id===m.id);
+  const boards=state.settings.boardParticipantIds?.includes(m.id)
+   ?weeklyBoards
+   :weeklyBoards.filter(({responsible})=>responsible.id===m.id);
   return <article className="people-card" key={m.id}>
    <div className="people-card-top">
     <Avatar member={m} className="people-avatar"/>
