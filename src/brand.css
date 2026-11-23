@@ -19,9 +19,10 @@ svg.lucide{stroke-linecap:round;stroke-linejoin:round}
 .page-heading p{font-size:15px;line-height:1.6;max-width:65ch}
 .main-content{padding-top:36px}
 
-/* Product name is plain text, independent of the institutional shield. */
+/* Product identity in the sidebar. */
 .sidebar{background:var(--gcba-navy);color:var(--gcba-white);border-right:0;padding:0 16px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#506675 var(--gcba-navy)}
 .brand{margin:0 -16px;padding:27px 27px 24px;background:var(--gcba-blue);border-radius:0 0 28px 0;min-height:109px;flex-shrink:0}
+.app-monogram{display:block;flex:none}
 .app-wordmark{display:block}
 .brand strong{font-size:26px;letter-spacing:-.7px;font-weight:700;color:var(--gcba-white)}
 .brand small{margin-top:7px;font-size:11px;letter-spacing:.1px;font-weight:400;text-transform:none;color:var(--gcba-white)}
@@ -158,7 +159,7 @@ svg.lucide{stroke-linecap:round;stroke-linejoin:round}
 
 @media(min-width:1550px){.page-heading h1{font-size:36px}.page-heading p{font-size:16px}}
 @media(max-width:1250px){:root{--sidebar:224px}.brand{padding-left:23px;padding-right:23px}.brand strong{font-size:25px}.brand small{font-size:10px}.nav-item{font-size:12px}.workspace{margin-left:2px;margin-right:2px}.app-footer{padding-left:25px;padding-right:25px}}
-@media(min-width:761px) and (max-width:1000px){:root{--sidebar:210px}.nav-item{gap:8px;padding-left:10px;padding-right:10px}.brand{padding-left:20px}.workspace strong{font-size:10px}.app-footer>span:last-of-type{margin-left:0}}
+@media(min-width:761px) and (max-width:1000px){:root{--sidebar:210px}.nav-item{gap:8px;padding-left:10px;padding-right:10px}.brand{padding-left:20px;gap:8px}.app-monogram{width:32px;height:32px}.workspace strong{font-size:10px}.app-footer>span:last-of-type{margin-left:0}}
 @media(max-width:760px){:root{--sidebar:0px}.sidebar{width:250px;padding:0 16px}.brand{padding:23px 26px;min-height:103px}.brand strong{font-size:26px}.brand small{font-size:11px}.nav-item{font-size:13px;min-height:44px}.workspace{margin:18px 8px}.workspace strong{font-size:11px}.topbar{height:64px}.breadcrumbs{font-size:11px}.main-content{padding-top:27px}.page-heading h1{font-size:29px}.page-heading p{font-size:14px}.btn{font-size:12px}.page-heading .btn{min-height:40px}.global-search input{font-size:11px}.app-footer{padding:10px 18px 20px;gap:4px}.institutional-signature{gap:12px}.institutional-signature>strong{font-size:12px}.shield-clearspace{padding:15px}.shield-clearspace img{width:108px;height:auto}.signature-divider{height:38px}.app-footer>span:last-of-type{display:flex;margin-left:0;font-size:10px}.institutional-login{padding:22px 18px;gap:20px}.institutional-login h1{font-size:28px}.institutional-login p{font-size:14px}.institutional-login>.institutional-signature{margin-bottom:12px}.overview-stats small{font-size:10px}.task-date{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
