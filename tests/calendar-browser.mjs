@@ -66,5 +66,28 @@ try{
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  });
+ await check('La DU muestra todos los tableros a quienes participan de todos y los propios al resto',async()=>{
+  const known=state.data.members.find(member=>member.id==='persona05');
+  const regular=state.data.members.find(member=>member.id==='persona06');
+  const other=state.data.members.find(member=>member.id==='persona07');
+  const connection=connections.get(known.id);
+  const day=addDays(weekStart(dateInBA()),2);
+  const event=normalizeCalendarEvent(raw({
+   id:'another-weekly-board',iCalUID:'another-weekly-board',summary:'Tablero Agencia - Seg. quincenal',
+   start:{dateTime:day+'T11:00:00-03:00'},end:{dateTime:day+'T12:00:00-03:00'},attendees:[{email}]
+  }),state.data.members);
+  state.settings.boardParticipantIds=[known.id,other.id];
+  state.data.areas.push({id:'agencia',version:1,name:'Otra área de prueba',active:true,leadId:other.id});
+  connections.set(known.id,{...connection,events:[...connection.events,event],revision:crypto.randomUUID()});
+  await page.reload();
+  const boards=name=>page.getByRole('article').filter({has:page.getByRole('heading',{name,exact:true})})
+   .getByRole('region',{name:'Tableros de la semana'});
+  for(const member of [known,other]){
+   const section=boards(member.name);
+   await section.getByText('Tablero de Otra área de prueba',{exact:true}).waitFor();
+   assert.deepEqual(await section.locator('li strong').allTextContents(),['Tablero de Área de prueba','Tablero de Otra área de prueba']);
+  }
+  assert.deepEqual(await boards(regular.name).locator('li strong').allTextContents(),['Tablero de Área de prueba']);
+ });
  assert.deepEqual(errors,[]);await writeFile('test-results/calendar-browser.json',JSON.stringify({passed,errors},null,2));
 }catch(error){await page.screenshot({path:'test-results/calendar-failure.png',fullPage:true});console.log('Pending requests', [...pending]);console.log((await page.locator('main').innerText()).slice(-2500));throw error;}finally{await browser.close();}
