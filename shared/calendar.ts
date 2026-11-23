@@ -1,7 +1,7 @@
 import type {Row} from './model.ts';
 import {dateInBA,normalize} from './model.ts';
 export type CalendarChoice={id:string;name:string;primary?:boolean};
-export type TeamEvent={id:string;title:string;start:string;end:string;allDay:boolean;location:string;url:string;meetUrl:string;updated:string;memberIds:string[]};
+export type TeamEvent={id:string;title:string;start:string;end:string;allDay:boolean;location:string;url:string;meetUrl:string;updated:string;memberIds:string[];primaryCalendar?:boolean};
 export function calendarPresence(memberId:string,events:TeamEvent[],connections:{memberId:string;syncedAt:string|null;syncError:string|null}[],now:number,unavailable=false){
  const connection=connections.find(c=>c.memberId===memberId),updated=connection?.syncedAt??null;
  const fresh=(c:{syncedAt:string|null;syncError:string|null})=>!c.syncError&&!!c.syncedAt&&Number.isFinite(Date.parse(c.syncedAt))&&now-Date.parse(c.syncedAt)<=600000;

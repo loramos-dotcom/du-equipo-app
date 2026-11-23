@@ -4,6 +4,7 @@ import {taskProjectRequired} from './task-project-policy.ts';
 import {activeTaskIssues,visibleTaskIssues,taskFollowupKey} from './task-followup.ts';
 import {resolveProjectAssignments}from'./project-assignments.ts';
 import {canEditCalendarMinutes}from'./calendar.ts';
+import {boardMeetings} from './board-followups.ts';
 import type {TeamEvent}from'./calendar.ts';
 import {validateWorkGraph,workClosureProblems,workBlockers,workSnapshotRows,taskDescription,retiredWorkFields} from './work.ts';
 import {cleanView} from './saved-views.ts';
@@ -36,9 +37,9 @@ const fields:Partial<Record<Collection,string[]>>={
 const terminals=['Terminada','Cancelada'];
 const isObject=(v:unknown):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 export function validDate(value:any,label='Fecha',mandatory=false){if(!value&&!mandatory)return;if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T12:00:00Z'))||new Date(value+'T12:00:00Z').toISOString().slice(0,10)!==value)fail(`${label}: ingresá una fecha válida.`);}
-export function execute(input:State,actorId:string,command:Command,now=new Date(),execution?:{jobId?:string;calendarEvent?:TeamEvent}):{state:State;result:any}{
+export function execute(input:State,actorId:string,command:Command,now=new Date(),execution?:{jobId?:string;calendarEvent?:TeamEvent;boardEvents?:TeamEvent[];boardProjectId?:string}):{state:State;result:any}{
  if(!isObject(command)||typeof command.id!=='string'||typeof command.kind!=='string'||command.data!==undefined&&!isObject(command.data))fail('La solicitud debe incluir una operación, un identificador y datos válidos.',400);
- const s=structuredClone(input),d=s.data;for(const c of collections)d[c]??=[];const externalProjects=projectContexts(s);if(execution)for(const link of [...d.projectLinks,...d.recurrences.filter(r=>isManagementProject(r.projectId)&&!d.projectLinks.some(l=>'gestion:'+l.sourceId===r.projectId)).map(r=>({sourceId:r.projectId.slice(8),version:r.version,members:d.members.filter(m=>m.active).map(m=>m.id),leadId:null}))]){if(!externalProjects.some(p=>p.sourceId===link.sourceId))externalProjects.push({id:'gestion:'+link.sourceId,version:link.version,sourceId:link.sourceId,title:'Proyecto compartido vinculado',status:'Activo',members:link.members??[],leadId:link.leadId});}delete s.externalProjects;const actor=(execution&&actorId==='system:daily'&&['generate_occurrences','generate_notifications'].includes(command.kind)?{id:actorId,name:'Proceso diario de DU Equipo',email:null,active:true,role:'Coordinación'}:d.members.find(x=>x.id===actorId&&x.active))??fail('Tu acceso no está activo. Consultá con coordinación.',403);
+ const s=structuredClone(input),d=s.data;for(const c of collections)d[c]??=[];const externalProjects=projectContexts(s);if(execution)for(const link of [...d.projectLinks,...d.recurrences.filter(r=>isManagementProject(r.projectId)&&!d.projectLinks.some(l=>'gestion:'+l.sourceId===r.projectId)).map(r=>({sourceId:r.projectId.slice(8),version:r.version,members:d.members.filter(m=>m.active).map(m=>m.id),leadId:null}))]){if(!externalProjects.some(p=>p.sourceId===link.sourceId))externalProjects.push({id:'gestion:'+link.sourceId,version:link.version,sourceId:link.sourceId,title:'Proyecto compartido vinculado',status:'Activo',members:link.members??[],leadId:link.leadId});}delete s.externalProjects;const actor=(execution&&actorId==='system:daily'&&['generate_occurrences','generate_notifications','sync_board_preparation'].includes(command.kind)?{id:actorId,name:'Proceso diario de DU Equipo',email:null,active:true,role:'Coordinación'}:d.members.find(x=>x.id===actorId&&x.active))??fail('Tu acceso no está activo. Consultá con coordinación.',403);
  if(!command.id||command.id.length>100)fail('Falta el identificador de la solicitud.',400);
  const a=structuredClone(command.data??{});
  if(['actorId','actor_id','workspaceId','workspace_id','authUserId','auth_user_id','activatedAt','createdBy','updatedBy','version','deletedAt','deletedBy','deletionId','deletionRoot','deletionDetaches'].some(k=>k in a))fail('La identidad y los datos del sistema se obtienen en el servidor.',400);
@@ -482,6 +483,34 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   const r=get('recurrences',a.recurrenceId);own(r.ownerId);version(r);reason();if(!Array.isArray(a.dates)||!a.dates.length||a.dates.some((date:string)=>!(r.pendingDates??[]).includes(date)))fail('Elegí fechas pendientes de esta plantilla.');if(!['generate','discard'].includes(a.action))fail('Elegí generar o descartar las ocurrencias.');
   let created=0;for(const date of [...new Set(a.dates)] as string[]){validDate(date,'Ocurrencia',true);if(a.action==='discard')r.dismissedDates=[...new Set([...(r.dismissedDates??[]),date])];else if(![...d.tasks,...deleted.tasks,...purgedTasks].some(t=>t.recurrenceId===r.id&&t.occurrenceDate===date)){const t=newRow('tasks',{...pick(r,['executionType','executionAreaId']),title:r.title,description:r.description??'',ownerId:r.ownerId,projectId:r.projectId??null,status:'Pendiente',priority:r.priority??'Media',requiresValidation:!!r.requiresValidation,validatorId:r.validatorId??null,code:nextTaskCode(),dueDate:date,originalDueDate:date,collaborators:r.collaborators??[],links:[],recurrenceId:r.id,occurrenceDate:date,origin:'Rutina recuperada'});taskRefs(t,r);created++;}}
   r.pendingDates=r.pendingDates.filter((date:string)=>!a.dates.includes(date));result={created,discarded:a.action==='discard'?a.dates.length:0};break;
+ }
+ case 'sync_board_preparation':{
+  if(actorId!=='system:daily'||!execution?.boardEvents||!execution.boardProjectId)fail('Acción reservada al calendario compartido.',403);
+  const project=get('projects',execution!.boardProjectId!);
+  const nextWeek=addDays(weekStart(today),7),end=addDays(nextWeek,7);
+  const skipped=new Set([...(s.ledger?.purgedBoardTasks??[]),...deleted.tasks.map(task=>task.id),...purgedTasks.map(task=>(task as Row).id)]);
+  const boards=boardMeetings(execution!.boardEvents!,d.areas.map(area=>effectiveArea(s,area,today)),d.members);
+  let created=0,updated=0;
+  for(const {event,area,responsible,day} of boards){
+   const id='board-preparation:'+event.id;
+   if(skipped.has(id))continue;
+   const dueDate=addDays(day,-7),existing=d.tasks.find(task=>task.id===id);
+   if(existing){
+    if(existing.archived||terminals.includes(existing.status)||existing.boardMeetingDate===day)continue;
+    Object.assign(existing,{dueDate,boardMeetingDate:day});
+    updated++;
+   }else if(day>=nextWeek&&day<end){
+    const task=newRow('tasks',{
+     code:nextTaskCode(),title:'Armar temario para el Tablero de '+area.name,
+     status:'Pendiente',priority:'Media',projectId:project.id,ownerId:responsible.id,collaborators:[],
+     assignmentMode:'area',areaId:area.id,areaIds:[area.id],executionType:'du',origin:'Tablero de Calendar',
+     dueDate,originalDueDate:dueDate,boardMeetingDate:day,links:event.url?[{title:'Reunión en Calendar',url:event.url}]:[]
+    },id);
+    taskRefs(task,task);
+    created++;
+   }
+  }
+  result={created,updated};break;
  }
  case 'generate_occurrences':{
   checkCoord();

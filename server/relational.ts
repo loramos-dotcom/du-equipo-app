@@ -6,7 +6,8 @@ export function metadata(state:State){
  const {data,audit,snapshots,receipts,externalProjects,trash,revision,...meta}=state;
  const purged=audit.filter(a=>a.entity==='tasks'&&a.action==='eliminar definitivamente'&&a.before).map(a=>a.before!);
  const occurrences=[...(state.ledger?.purgedOccurrences??[]),...purged.filter(t=>t.recurrenceId&&t.occurrenceDate).map(t=>({recurrenceId:t.recurrenceId,occurrenceDate:t.occurrenceDate}))];
- return {...meta,ledger:{maxTaskCode:Math.max(state.ledger?.maxTaskCode??100,...[...data.tasks,...purged].map(t=>/^T\d+$/.test(t.code??'')?Number(t.code.slice(1)):100)),purgedOccurrences:[...new Map(occurrences.map(t=>[t.recurrenceId+':'+t.occurrenceDate,t])).values()]}};
+ const purgedBoardTasks=[...new Set([...(state.ledger?.purgedBoardTasks??[]),...purged.filter(task=>task.boardMeetingDate).map(task=>task.id)])];
+ return {...meta,ledger:{maxTaskCode:Math.max(state.ledger?.maxTaskCode??100,...[...data.tasks,...purged].map(t=>/^T\d+$/.test(t.code??'')?Number(t.code.slice(1)):100)),purgedOccurrences:[...new Map(occurrences.map(t=>[t.recurrenceId+':'+t.occurrenceDate,t])).values()],...(purgedBoardTasks.length?{purgedBoardTasks}:{})}};
 }
 export function stateDelta(before:State,after:State){
  const changes:Record<string,any[]>={};
