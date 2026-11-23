@@ -4,6 +4,31 @@ import {seed} from '../shared/seed.ts';
 import {execute} from '../shared/domain.ts';
 import {dailyJobRequest,runDailyJobs} from '../server/jobs.ts';
 import type {State} from '../shared/model.ts';
+
+test('Las recurrencias de medianoche empiezan el lunes de Buenos Aires y conservan las semanas anteriores',async()=>{
+ const f=fixture();
+ const state=f.state();
+ state.data.recurrences.push({
+  id:'weekly-report',version:1,title:'Reporte del lunes',ownerId:'persona05',collaborators:['persona06'],
+  frequency:'Semanal',weekday:1,startsOn:'2026-11-23',active:true,generateOnDate:true
+ });
+ const recurrences=()=>f.state().data.tasks.filter(t=>t.recurrenceId==='weekly-report');
+ const sunday=new Date('2026-11-23T02:59:59Z'),monday=new Date('2026-11-23T03:00:00Z');
+ await runDailyJobs(f.store,'test',sunday);
+ assert.equal(recurrences().length,0);
+ await Promise.all([runDailyJobs(f.store,'test',monday),runDailyJobs(f.store,'test',monday)]);
+ assert.deepEqual(recurrences().map(t=>[t.occurrenceDate,t.status,t.ownerId,t.collaborators,t.dueDate]),[
+  ['2026-11-23','Pendiente','persona05',['persona06'],null]
+ ]);
+ const original=structuredClone(recurrences()[0]);
+ await runDailyJobs(f.store,'test',new Date('2026-11-23T09:00:00Z'));
+ assert.deepEqual(recurrences(),[original]);
+ await runDailyJobs(f.store,'test',new Date('2026-11-30T03:00:00Z'));
+ assert.equal(recurrences().length,2);
+ assert.deepEqual(recurrences()[0],original);
+ assert.equal(recurrences()[1].occurrenceDate,'2026-11-30');
+});
+
 const now=new Date('2026-10-21T13:00:00Z');
 function fixture(){let state=seed(now);state.data.recurrences.push({id:'routine',version:1,title:'Reporte DU',ownerId:'persona05',frequency:'Semanal',weekday:3,startsOn:'2026-09-01',active:true,generationCursor:'2026-10-04'});const store={load:async()=>structuredClone(state),create:async()=>{},save:async(_key:string,revision:number,next:State)=>{if(revision!==state.revision)return false;state=structuredClone(next);return true;}};return {store,state:()=>state};}
 test('El proceso diario no exige una sesión de una persona ni permite imitar su identidad',async()=>{
