@@ -8,7 +8,7 @@ export function InstitutionalSignature(){
 
 export function AppWordmark(){
  return <>
-  <img className="app-monogram" src="/brand/du-mark.svg" width="40" height="40" alt=""/>
+  <img className="app-monogram" src="/brand/du-mark.svg?v=2" width="40" height="40" alt=""/>
   <span className="app-wordmark"><strong>DU Equipo</strong><small>Delivery Unit · Educación</small></span>
  </>;
 }
