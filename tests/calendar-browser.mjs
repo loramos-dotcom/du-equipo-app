@@ -49,10 +49,17 @@ try{
   const responsible=state.data.members.find(member=>member.id==='persona06');
   const card=name=>page.getByRole('article').filter({has:page.getByRole('heading',{name,exact:true})});
   const responsibleCard=card(responsible.name);
-  const section=responsibleCard.getByRole('region',{name:'Tableros de la semana'});
-  await section.getByText('Tablero de Área de prueba',{exact:true}).waitFor();
-  assert.equal(await card(owner.name).getByRole('region',{name:'Tableros de la semana'}).count(),0);
-  assert.equal(await responsibleCard.locator('.people-boards + .people-presence').count(),1);
+  const section=responsibleCard.getByRole('region',{name:'Tableros',exact:true});
+  await section.getByText('Área de prueba',{exact:true}).waitFor();
+  const ownerCard=card(owner.name);
+  assert.equal(await ownerCard.getByRole('region',{name:'Tableros',exact:true}).count(),0);
+  assert.equal(await ownerCard.locator('.people-areas').count(),0);
+  assert.equal(await responsibleCard.locator('.people-identity .people-areas').count(),1);
+  assert.equal(await responsibleCard.locator('.people-card-body + .people-card-footer .people-presence').count(),1);
+  await ownerCard.locator('.people-presence-details summary').click();
+  assert.ok(await ownerCard.getByText(/Última actualización/).isVisible());
+  await ownerCard.locator('.people-presence-details summary').click();
+  assert.equal(await ownerCard.getByText(/Última actualización/).isVisible(),false);
   assert.equal(await section.getByRole('listitem').count(),1);
   assert.match(await section.locator('time').innerText(),/10:00$/);
   const connection=connections.get(owner.id);
@@ -61,7 +68,7 @@ try{
   connections.set(owner.id,{...connection,events:[{...first,start:newDay+'T16:00:00Z',end:newDay+'T17:00:00Z'},...rest],revision:crypto.randomUUID()});
   await page.reload();
   await section.locator('time[datetime="'+newDay+'T16:00:00Z"]').waitFor();
-  assert.match(await section.locator('time').innerText(),/13:00$/);
+  assert.match(await section.locator('time').innerText(),/\d{2}\/\d{2} · 13:00$/);
   assert.equal(await section.getByRole('listitem').count(),1);
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
@@ -78,16 +85,35 @@ try{
   }),state.data.members);
   state.settings.boardParticipantIds=[known.id,other.id];
   state.data.areas.push({id:'agencia',version:1,name:'Otra área de prueba',active:true,leadId:other.id});
+  const week=weekStart(dateInBA());
+  state.data.tasks.push({id:'review-fixture',version:1,title:'Revisar el informe semanal',status:'Pendiente',priority:'Media',ownerId:regular.id,projectId:'fixture-recurring-project',dueDate:day});
+  state.data.plans.push({id:week+':'+regular.id,version:1,weekId:week,ownerId:regular.id,status:'Borrador',taskSelections:{'review-fixture':true}});
   connections.set(known.id,{...connection,events:[...connection.events,event],revision:crypto.randomUUID()});
+  await page.setViewportSize({width:1440,height:1000});
   await page.reload();
   const boards=name=>page.getByRole('article').filter({has:page.getByRole('heading',{name,exact:true})})
-   .getByRole('region',{name:'Tableros de la semana'});
+   .getByRole('region',{name:'Tableros',exact:true});
   for(const member of [known,other]){
    const section=boards(member.name);
-   await section.getByText('Tablero de Otra área de prueba',{exact:true}).waitFor();
-   assert.deepEqual(await section.locator('li strong').allTextContents(),['Tablero de Área de prueba','Tablero de Otra área de prueba']);
+   await section.getByText('Otra área de prueba',{exact:true}).waitFor();
+   assert.deepEqual(await section.locator('li strong').allTextContents(),['Área de prueba','Otra área de prueba']);
   }
-  assert.deepEqual(await boards(regular.name).locator('li strong').allTextContents(),['Tablero de Área de prueba']);
+  assert.deepEqual(await boards(regular.name).locator('li strong').allTextContents(),['Área de prueba']);
+  const card=page.getByRole('article').filter({has:page.getByRole('heading',{name:regular.name,exact:true})});
+  await card.getByRole('region',{name:'Tareas',exact:true}).getByRole('button',{name:/Revisar el informe semanal/}).waitFor();
+  const bodyGeometry=await card.evaluate(element=>{
+   const task=element.querySelector('.people-work-row').getBoundingClientRect();
+   const boardsHeading=element.querySelector('.people-boards h3').getBoundingClientRect();
+   return {gap:boardsHeading.top-task.bottom,footer:element.querySelector('.people-card-footer').getBoundingClientRect().bottom};
+  });
+  assert.ok(bodyGeometry.gap>=0&&bodyGeometry.gap<=20);
+  const footer=page.getByRole('article').filter({has:page.getByRole('heading',{name:known.name,exact:true})}).locator('footer');
+  assert.equal((await footer.boundingBox()).y+(await footer.boundingBox()).height,bodyGeometry.footer);
+  await page.locator('.people-grid').screenshot({path:'test-results/la-du-tarjetas-escritorio.png'});
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await card.screenshot({path:'test-results/la-du-tarjeta-movil.png'});
  });
  assert.deepEqual(errors,[]);await writeFile('test-results/calendar-browser.json',JSON.stringify({passed,errors},null,2));
 }catch(error){await page.screenshot({path:'test-results/calendar-failure.png',fullPage:true});console.log('Pending requests', [...pending]);console.log((await page.locator('main').innerText()).slice(-2500));throw error;}finally{await browser.close();}
