@@ -8,7 +8,7 @@ import {areaTheme} from './area-colors';
 import Avatar from './Avatar';
 type Props={state:State;members:Row[];week:string;today:string;agenda:SharedAgenda;coordinator:boolean;onEdit:(member:Row)=>void;onOpen:(entity:Collection,id:string)=>void;onWeek:(id:string)=>void;onArea:(id:string)=>void};
 export default function TeamPeople({state,members,week,today,agenda,coordinator,onEdit,onOpen,onWeek,onArea}:Props){
- const {areas:teamAreas}=state.data;
+ const {areas:teamAreas,projects}=state.data;
  return <><div className="people-grid">{members.map(m=>{
   const {selected}=weeklyTasks(state,week,m.id,today);
   const presence=calendarPresence(m.id,agenda.events,agenda.connections,agenda.now,!!agenda.error),areas=teamAreas.filter(a=>a.active&&(a.leadId===m.id||(a.substitutes??[]).includes(m.id)));
@@ -25,10 +25,11 @@ export default function TeamPeople({state,members,week,today,agenda,coordinator,
    <div className="people-work">
     {selected.length ? selected.map(({task,commitment})=>{
      const dueDate=commitment?.targetDate||task.dueDate;
+     const projectTitle=projects.find(project=>project.id===task.projectId)?.title??(task.projectId?'Proyecto no disponible':'Sin proyecto');
      const completed=task.status==='Terminada';
      return <button key={task.id} className="people-work-row" onClick={()=>onOpen('tasks',task.id)}>
       <span className={'people-work-mark'+(completed?' is-done':'')} aria-hidden="true">{completed?'✓':'·'}</span>
-      <span><strong>{task.title}</strong><small>{task.status}{dueDate?' · '+formatDate(dueDate):''}</small></span>
+      <span><strong>{task.title}</strong><small>{projectTitle}{dueDate?' · '+formatDate(dueDate):''}</small></span>
      </button>;
     }) : <p className="desk-empty-copy">Sin tareas asignadas para esta semana.</p>}
    </div><div className={'people-presence '+presence.kind}><span className="dot"/><span><strong>{presence.label}</strong><small>Agenda compartida{presence.updated?' · '+new Intl.DateTimeFormat('es-AR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Argentina/Buenos_Aires'}).format(new Date(presence.updated)):''}</small></span></div><button className="text-button people-week-link" onClick={()=>onWeek(m.id)}>Ver resto de tareas <ArrowRight size={15}/></button></article>;
