@@ -25,9 +25,11 @@
 .project-detail .project-sheet-grid dd p:last-child{margin-bottom:0}
 .project-detail .project-sheet-body{padding:26px 36px}
 .project-detail .project-sheet-grid+.project-summary-pending{margin-top:24px}
-.project-summary-pending h3{margin:0 0 6px;font-size:15px}
-.project-summary-pending ul{margin:0;padding:0;list-style:none}
-.project-summary-pending .task-name{width:auto;max-width:100%;min-height:32px;padding:5px 0;color:var(--teal);font-size:14px;line-height:1.55;overflow-wrap:anywhere}
+.project-summary-pending h3{margin:0 0 8px;font-size:15px}
+.project-summary-pending ul{margin:0;padding-inline-start:18px;list-style:disc}
+.project-summary-pending li::marker{color:#607085;font-size:11px}
+.project-summary-pending li+li{border-top:1px solid #e2e8ee}
+.project-summary-pending .task-name{display:block;width:100%;min-height:36px;padding:7px 0;color:var(--teal);font-size:14px;line-height:1.55;overflow-wrap:anywhere}
 .project-summary-pending>.muted-text{margin:0;font-size:13px}
 .project-detail .project-management-data{margin-top:24px;padding-top:17px;border-top:1px solid #e2e8ee}
 .project-detail .project-management-data>summary{width:fit-content;color:#607085;font-size:12px;cursor:pointer}
