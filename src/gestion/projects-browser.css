@@ -24,10 +24,11 @@
 .project-browser-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);margin:0 0 13px;min-height:20px;flex-wrap:wrap}
 .project-browser-meta>.text-button{font-size:11px}
 .du-shared-projects .project-single-list{margin-top:0}
-.du-shared-projects .du-project-list.project-browser-table th:first-child{width:44%}
+.du-shared-projects .du-project-list.project-browser-table th:first-child{width:36%}
 .du-shared-projects .du-project-list.project-browser-table th:nth-child(2){width:18%}
-.du-shared-projects .du-project-list.project-browser-table th:nth-child(3){width:23%}
-.du-shared-projects .du-project-list.project-browser-table th:last-child{width:15%}
+.du-shared-projects .du-project-list.project-browser-table th:nth-child(3){width:22%}
+.du-shared-projects .du-project-list.project-browser-table th:nth-child(4){width:11%}
+.du-shared-projects .du-project-list.project-browser-table th:last-child{width:13%}
 .du-shared-projects .project-browser-table td{padding:13px 14px}
 .du-shared-projects .project-browser-table .du-table-project>.text-button{font-size:13px}
 .du-shared-projects .project-browser-table .du-table-project{gap:4px}
@@ -50,7 +51,9 @@
  .du-shared-projects .project-browser-table td{padding:0}
  .du-shared-projects .project-browser-table td[data-label="Proyecto"]{grid-row:1;grid-column:1/-1}
  .du-shared-projects .project-browser-table td[data-label="Área"]{grid-row:2;grid-column:1}
- .du-shared-projects .project-browser-table td[data-label="Referente DU"]{grid-row:3;grid-column:1/-1;display:flex;align-items:center;gap:6px}
+ .du-shared-projects .project-browser-table td[data-label="Referente DU"]{grid-row:3;grid-column:1;display:flex;align-items:center;gap:6px}
  .du-shared-projects .project-browser-table td[data-label="Referente DU"]:before{content:'Referente DU:';font-size:10px;color:var(--muted)}
  .du-shared-projects .project-browser-table td[data-label="Estado"]{grid-row:2;grid-column:2;justify-self:end}
+ .du-shared-projects .project-browser-table td[data-label="Prioridad"]{grid-row:3;grid-column:2;justify-self:end;align-self:center;display:flex;align-items:center;gap:5px}
+ .du-shared-projects .project-browser-table td[data-label="Prioridad"]:before{content:'Prioridad';font-size:10px;color:var(--muted)}
 }

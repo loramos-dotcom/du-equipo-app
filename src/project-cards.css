@@ -33,6 +33,13 @@
   flex: 0 0 50px;
 }
 
+.project-card-priority {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .projects-grid .project-card .next-step {
   flex-shrink: 0;
 }

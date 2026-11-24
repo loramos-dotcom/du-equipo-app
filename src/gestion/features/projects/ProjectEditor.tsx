@@ -1,4 +1,5 @@
 import {areaTheme} from '../../../area-colors'
+import {defaultProjectPriority,projectPriorities,projectPriorityLevel} from '../../../../shared/project-priority'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Link2, Plus, Save, Trash2, X } from 'lucide-react'
 import { areas } from '../../data/demo'
@@ -98,7 +99,7 @@ export function ProjectEditor({
   const [parentId, setParentId] = useState('')
   const [name, setName] = useState('')
   const [dgGo, setDgGo] = useState('')
-  const [priority, setPriority] = useState('')
+  const [priority, setPriority] = useState<string>(defaultProjectPriority)
   const [manualStatus, setManualStatus] = useState<ManualProjectStatus | ''>('')
   const [plannedStart, setPlannedStart] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
@@ -128,7 +129,7 @@ export function ProjectEditor({
     setParentId(project?.parentId || initialParentId || '')
     setName(project?.name || '')
     setDgGo(project?.owner === 'Sin definir' ? '' : project?.owner || '')
-    setPriority(project?.priority || '')
+    setPriority(project ? projectPriorityLevel(project.priority) ?? project.priority : defaultProjectPriority)
     setManualStatus(project?.manualStatus || '')
     setPlannedStart(project?.plannedStart || '')
     setPlannedEnd(project?.plannedEnd || '')
@@ -410,7 +411,11 @@ export function ProjectEditor({
                 <input value={dgGo} onChange={(event) => setDgGo(event.target.value)} />
               </label>
               <label>Prioridad
-                <input value={priority} onChange={(event) => setPriority(event.target.value)} />
+                <select aria-label="Prioridad" value={priority} onChange={(event) => setPriority(event.target.value)}>
+                  <option value="" disabled>Sin definir</option>
+                  {priority && !projectPriorityLevel(priority) && <option value={priority} disabled>{priority}</option>}
+                  {projectPriorities.map(level => <option key={level} value={level}>{level}</option>)}
+                </select>
               </label>
               <label>Estado del {kind === 'subproject' ? 'subproyecto' : 'proyecto'}
                 <select value={manualStatus} onChange={(event) => setManualStatus(event.target.value as ManualProjectStatus | '')}>
