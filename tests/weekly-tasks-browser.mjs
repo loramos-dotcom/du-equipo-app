@@ -89,7 +89,7 @@ try{
   assert.equal(await upper().getByRole('button',{name:/Quitar de esta semana/}).count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
  });
- await check('Coordinación puede mover tareas de un plan ajeno con un motivo en el historial',async()=>{
+ await check('Coordinación puede mover tareas de un plan ajeno y guardar un motivo opcional en el historial',async()=>{
   signedInAs='persona01';
   await page.setViewportSize({width:1440,height:1000});await page.reload();
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
@@ -100,22 +100,22 @@ try{
   await taskInWeek.waitFor();
   assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.priority,true);
   await taskInWeek.dragTo(lower());
-  const reasonField=dialog.getByLabel('Motivo del cambio',{exact:true});
-  assert.equal(await reasonField.getAttribute('required'),'');
-  await reasonField.fill(reason);
+  const reasonField=dialog.getByLabel('Motivo del cambio (opcional)',{exact:true});
+  assert.equal(await reasonField.getAttribute('required'),null);
   await dialog.getByRole('button',{name:'Quitar de esta semana',exact:true}).click();
   await taskInRest.waitFor();
   const plan=state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week);
   assert.equal(plan.taskSelections.priority,false);
   assert.deepEqual(state.data.tasks.find(t=>t.id==='priority'),before);
-  assert.ok(state.audit.some(entry=>entry.entity==='plans'&&entry.entityId===plan.id&&entry.actorId==='persona01'&&entry.reason===reason));
+  assert.ok(state.audit.some(entry=>entry.entity==='plans'&&entry.entityId===plan.id&&entry.actorId==='persona01'&&entry.reason===''));
   await page.reload();
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
   await taskInRest.getByRole('button',{name:'Agregar a esta semana: '+title,exact:true}).click();
   const addDialog=page.getByRole('dialog',{name:'Agregar a esta semana',exact:true});
-  await addDialog.getByLabel('Motivo del cambio',{exact:true}).fill('Volver a incluir el informe');
+  await addDialog.getByLabel('Motivo del cambio (opcional)',{exact:true}).fill(reason);
   await addDialog.getByRole('button',{name:'Agregar a esta semana',exact:true}).click();
   await taskInWeek.waitFor();
+  assert.ok(state.audit.some(entry=>entry.entity==='plans'&&entry.entityId===plan.id&&entry.actorId==='persona01'&&entry.reason===reason));
   signedInAs='persona05';await page.reload();await taskInWeek.waitFor();
  });
  await check('Un vencimiento de esta semana aparece en La DU y Mi semana para responsable y colaborador',async()=>{

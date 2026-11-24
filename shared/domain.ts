@@ -55,7 +55,11 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  const activeMember=(id:string)=>{const m=get('members',id);if(!m.active)fail('La persona seleccionada no está activa.');return m;};
  const checkCoord=()=>{if(!coord)fail('Esta acción corresponde a coordinación.',403);};
  const reason=()=>required(a.reason,'Motivo');
- const own=(id:string)=>{if(!coord&&id!==actorId)fail('Solo podés modificar tu propio trabajo.',403);if(coord&&id!==actorId)reason();};
+ const own=(id:string,options:{requireReason?:boolean}={})=>{
+  if(id===actorId)return;
+  if(!coord)fail('Solo podés modificar tu propio trabajo.',403);
+  if(options.requireReason!==false)reason();
+ };
  const version=(r:Row)=>{if(command.expectedVersion!==r.version)fail('Otra persona actualizó este registro. Conservamos tu formulario: recargá para revisar los cambios.',409);if(r.archived)fail('Restaurá el registro archivado antes de modificarlo.');};
  const lead=(p:Row)=>coord||p.leadId===actorId;
  const taskEditor=(t:Row)=>coord||t.ownerId===actorId||!!(t.projectId&&get('projects',t.projectId).leadId===actorId);
@@ -392,7 +396,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
  case 'link_project_area':{checkCoord();reason();const p=get('projects',a.projectId);get('areas',a.areaId);const target=p.external?(d.projectLinks.find(l=>l.sourceId===p.sourceId)??newRow('projectLinks',{sourceId:p.sourceId,leadId:null,members:p.members??[],areaIds:[],areaPriorities:{},intervention:'acompaña'})):p;target.areaIds=[...new Set([...(target.areaIds??[]),a.areaId])];break;}
  case 'milestone_status':{const m=get('milestones',command.entityId!);version(m);if(!lead(get('projects',m.projectId)))fail('Solo el referente puede modificar el hito.',403);if(a.status==='Logrado')required(a.note||a.evidence,'Criterio cumplido y evidencia o justificación');if(a.status==='Cancelado'){reason();if(d.tasks.some(t=>t.milestoneId===m.id&&!terminals.includes(t.status)))fail('Desvinculá o resolvé las tareas del hito antes de cancelarlo.');}if(!['Pendiente','En curso','Logrado','Cancelado'].includes(a.status))fail('Estado de hito inválido.');Object.assign(m,{status:a.status,note:a.note??'',evidence:a.evidence??'',completedAt:a.status==='Logrado'?at:null});break;}
  case 'select_week_task':{
-  const task=get('tasks',a.taskId);version(task);activeMember(task.ownerId);own(task.ownerId);openWeek(a.weekId);
+  const task=get('tasks',a.taskId);version(task);activeMember(task.ownerId);own(task.ownerId,{requireReason:false});openWeek(a.weekId);
   if(typeof a.selected!=='boolean')fail('Indicá si la tarea forma parte de la semana.',400);
   if(task.archived||terminals.includes(task.status))fail('Solo se pueden mover tareas abiertas.');
   const current=d.plans.find(p=>p.weekId===a.weekId&&p.ownerId===task.ownerId);

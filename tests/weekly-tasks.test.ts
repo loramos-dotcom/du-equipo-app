@@ -35,11 +35,11 @@ test('Mover tareas persiste por semana, permite devolverlas y conserva la priori
  s=move(s,'priority',false);assert.equal(weeklyTasks(s,week,owner,today).selected.length,0);assert.equal(s.data.tasks.find(t=>t.id==='priority')!.panelPriority,true);
  assert.equal(weeklyTasks(s,'2026-11-16',owner,today).selected.length,1);
 });
-test('No se puede mover trabajo ajeno, cerrado o archivado ni pisar un plan que cambió',()=>{
+test('Solo Coordinación puede mover tareas ajenas. Se respetan los cierres, archivos y versiones',()=>{
  const s=fixture(),before=structuredClone(s);
  assert.throws(()=>move(s,'other',true),/propio trabajo/);
- assert.throws(()=>move(s,'normal',true,'persona01'),/Motivo/);
- assert.doesNotThrow(()=>move(s,'normal',true,'persona01',week,{reason:'Ajuste acordado con la persona responsable'}));
+ const adjusted=move(s,'normal',true,'persona01');
+ assert.deepEqual(weeklyTasks(adjusted,week,owner,today).selected.map(r=>r.task.id),['priority','normal']);
  assert.throws(()=>move(s,'done',true),/abiertas/);assert.throws(()=>move(s,'archived',true),/archivado/);
  assert.throws(()=>move(s,'normal',true,owner,week,{planVersion:999}),/plan cambió/);
  assert.deepEqual(s,before);
