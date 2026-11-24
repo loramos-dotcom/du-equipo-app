@@ -120,6 +120,7 @@ try{
   await form().getByRole('button',{name:'Crear proyecto',exact:true}).click();
   const sheet=page.locator('dialog.project-detail[open]');
   await sheet.getByText('Prioridad baja',{exact:true}).waitFor();
+  await sheet.getByRole('region',{name:'Pendientes',exact:true}).getByText('No hay tareas pendientes.',{exact:true}).waitFor();
   assert.equal(state.data.projects.find(p=>p.title===name).priority,'Baja');
   await sheet.getByRole('button',{name:'Editar proyecto',exact:true}).click();
   await priority.selectOption('Alta');
@@ -259,6 +260,27 @@ try{
  let localStyle;
  identity={id:'du-persona05',email,provider:'google',verified:true};
  await page.goto(origin+'/#Proyectos');await page.reload();await manager().getByRole('heading',{name:'Proyectos',exact:true}).waitFor();await reset();await scope().getByRole('button',{name:'Todos los proyectos',exact:true}).click();
+ await check('El resumen muestra solo los títulos pendientes y abre la tarea en ambas fichas de proyecto',async()=>{
+  for(const group of taskGroups){
+   await manager().getByRole('button',{name:'Abrir '+group.projectName,exact:true}).click();
+   await commonSheet().getByRole('heading',{name:group.projectName,exact:true}).waitFor();
+   const pending=commonSheet().getByRole('region',{name:'Pendientes',exact:true});
+   const opener=pending.getByRole('button',{name:group.pending,exact:true});
+   await opener.waitFor();
+   assert.deepEqual(await pending.getByRole('listitem').allTextContents(),[group.pending]);
+   for(const title of [group.finished,group.cancelled,group.archived,unrelatedTask]){
+    assert.equal(await pending.getByText(title,{exact:true}).count(),0);
+   }
+   await opener.click();
+   const task=page.locator('dialog.task-detail[open]');
+   await task.getByRole('heading',{name:group.pending,exact:true}).waitFor();
+   await task.getByRole('button',{name:'Volver al proyecto',exact:true}).click();
+   await opener.waitFor();
+   assert.equal(await commonSheet().getByRole('tab',{name:'Resumen',exact:true}).getAttribute('aria-selected'),'true');
+   assert.equal(await opener.evaluate(button=>document.activeElement===button),true);
+   await closeProjectSheets(group.projectId);
+  }
+ });
  await check('Los proyectos propios usan el encabezado, las pestañas y el resumen común y conservan edición y tareas',async()=>{
   await manager().getByRole('button',{name:'Abrir Proyecto propio para comparar fichas',exact:true}).click();await commonSheet().getByRole('heading',{name:'Proyecto propio para comparar fichas',exact:true}).waitFor();assert.deepEqual(await commonSheet().getByRole('tab').allTextContents(),['Resumen','Tareas','Actividad']);assert.equal(await commonSheet().locator('.project-sheet-heading>.eyebrow').innerText(),'PROYECTO');assert.equal(await commonSheet().locator('.project-sheet-grid dt').first().textContent(),'Resultado esperado');assert.equal(await commonSheet().getByText('Todavía no hay actualizaciones. Registrá avances, novedades o próximos pasos.',{exact:true}).count(),0);assert.equal(await commonSheet().locator('.project-sheet-lead').getByRole('img',{name:'Persona 05',exact:true}).count(),1);assert.equal(await commonSheet().getByRole('button',{name:'Eliminar proyecto',exact:true}).isVisible().catch(()=>false),false);await commonSheet().getByRole('button',{name:'Agregar actualización',exact:true}).waitFor();const management=commonSheet().locator('details').filter({has:page.locator('summary').filter({hasText:/^Datos de gestión$/})});assert.equal(await management.count(),1);assert.equal(await management.getAttribute('open'),null);await management.locator('summary').click();assert.equal(await management.getAttribute('open'),'');await management.locator('summary').click();localStyle=await sheetStyle();await page.screenshot({path:'test-results/portfolio-common-local-desktop.png',fullPage:true});
   await commonSheet().getByRole('tab',{name:'Actividad',exact:true}).click();await commonSheet().getByText('Novedad propia de prueba',{exact:true}).waitFor();await commonSheet().getByRole('tab',{name:'Tareas',exact:true}).click();await commonSheet().getByRole('heading',{name:'Tareas de seguimiento DU',exact:true}).waitFor();await commonSheet().locator('.task-name').filter({hasText:'Tarea del proyecto propio de prueba'}).waitFor();

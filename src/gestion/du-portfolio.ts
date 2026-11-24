@@ -1,4 +1,5 @@
 import type {Project,ProjectStatus} from './domain/types';
+import type {Row} from '../../shared/model';
 
 export const openProjectStatuses:ProjectStatus[]=['active','pending','alert'];
 export const allProjectStatuses:ProjectStatus[]=[...openProjectStatuses,'finished'];
@@ -22,10 +23,13 @@ export function priorityFirstProjects(projects:Project[]):Project[]{
 
 export const projectAreaLabels:Record<string,string>={gestion_administrativa:'SSGAD',aprendizaje:'SSGDA',tecnologia:'SSTEDU',planeamiento:'SSPIE',privada:'Privada',agencia:'Agencia',ueicee:'UEICEE',universidad:'Universidad',comu_prensa:'Comunicación',transversales:'Transversales'};
 
+export type ProjectTaskOrigin={taskId:string;scrollTop:number};
+
 export type DuPortfolio={
  overlayOpen?:boolean;dismissRevision?:number;
  localProjects?:Project[];onOpenLocal?:(id:string)=>void;onCreateLocal?:()=>void;
- onOpenWork?:(id:string,section:string,context:import('../ProjectSheet').ProjectSheetContext)=>void;
+ projectTasks?:(id:string)=>Row[];
+ onOpenWork?:(id:string,section:string,context:import('../ProjectSheet').ProjectSheetContext,task?:ProjectTaskOrigin)=>void;
  followedAreaKeys:string[];coordinator:boolean;directProjectIds:string[];
  people:{id:string;name:string}[];
  priorityIds:string[];assignments:Record<string,{memberIds:string[];members:string[];areaKeys:string[];version:number;leadName?:string}>;
