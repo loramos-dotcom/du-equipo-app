@@ -79,6 +79,52 @@ try{
   await page.getByRole('button',{name:'Semana siguiente',exact:true}).click();await task(lower(),'Revisar documento de prueba').waitFor();assert.equal(await task(upper(),'Preparar informe de prueba').count(),1);
   await page.getByRole('button',{name:'Esta semana',exact:true}).click();await task(upper(),'Revisar documento de prueba').waitFor();
  });
+ await check('La rueda y los bordes desplazan una lista larga sin soltar la tarea',async()=>{
+  const initial=structuredClone(state),title='Preparar informe de prueba';
+  for(let i=0;i<32;i++){
+   state.data.tasks.push({id:'scroll-'+i,version:1,title:'Tarea de prueba '+i,ownerId:'persona05',projectId:'weekly-project',status:'Pendiente',panelPriority:true});
+  }
+  await page.reload();
+  const source=task(upper(),title);
+  await source.scrollIntoViewIfNeeded();
+  const grip=await source.locator('.weekly-task-grip').boundingBox();
+  const x=grip.x+grip.width/2,y=grip.y+grip.height/2,{height}=page.viewportSize();
+  await page.mouse.move(x,y);await page.mouse.down();
+  await page.mouse.move(x+10,y+12,{steps:4});
+  const preview=page.locator('.weekly-drag-preview');
+  await preview.waitFor();
+  const scrollY=()=>page.evaluate(()=>window.scrollY);
+  const start=await scrollY();
+  await page.mouse.wheel(0,500);
+  await page.waitForFunction(start=>window.scrollY>start+300,start);
+  const afterWheel=await scrollY();
+  await page.mouse.wheel(0,-200);
+  await page.waitForFunction(start=>window.scrollY<start-150,afterWheel);
+  const beforeBottom=await scrollY();
+  await page.mouse.move(x+10,height-10);
+  await page.waitForFunction(start=>window.scrollY>start+40,beforeBottom);
+  const afterBottom=await scrollY();
+  await page.mouse.move(x+10,10);
+  await page.waitForFunction(start=>window.scrollY<start-40,afterBottom);
+  await page.mouse.move(x+10,height/2);await page.mouse.wheel(0,4000);
+  await page.waitForFunction(()=>document.querySelector('.weekly-rest').getBoundingClientRect().bottom<window.innerHeight);
+  const destination=await lower().boundingBox();
+  await page.mouse.move(x+10,destination.y+destination.height/2);
+  await lower().locator('xpath=self::*[contains(@class, "is-drop-target")]').waitFor();
+  await page.mouse.up();
+  await task(lower(),title).waitFor();await settle();
+  await preview.waitFor({state:'hidden'});
+  assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.priority,false);
+  state=initial;await page.reload();await source.waitFor();
+  const titleButton=source.getByRole('button',{name:title,exact:true});
+  const titleBox=await titleButton.boundingBox();
+  await page.mouse.move(titleBox.x+16,titleBox.y+8);await page.mouse.down();
+  await page.mouse.move(titleBox.x+30,titleBox.y+16);
+  await preview.waitFor();await page.keyboard.press('Escape');await page.mouse.up();
+  await preview.waitFor({state:'hidden'});await source.waitFor();
+  assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.priority,true);
+ });
  await check('En móvil se puede mover con un toque y no hay desborde horizontal',async()=>{
   await page.setViewportSize({width:390,height:844});await upper().getByRole('button',{name:'Quitar de esta semana: Revisar documento de prueba',exact:true}).click();await task(lower(),'Revisar documento de prueba').waitFor();await settle();
   await lower().getByRole('button',{name:'Agregar a esta semana: Revisar documento de prueba',exact:true}).click();await task(upper(),'Revisar documento de prueba').waitFor();await settle();
@@ -86,7 +132,7 @@ try{
  });
  await check('Los integrantes sin rol de Coordinación solo consultan los planes ajenos',async()=>{
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');await task(upper(),'Tarea de otra persona').waitFor();
-  assert.equal(await upper().getByRole('button',{name:/Quitar de esta semana/}).count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);
+  assert.equal(await upper().getByRole('button',{name:/Quitar de esta semana/}).count(),0);assert.equal(await upper().locator('[data-movable]').count(),0);
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
  });
  await check('Coordinación puede mover tareas de un plan ajeno y guardar un motivo opcional en el historial',async()=>{
@@ -126,7 +172,7 @@ try{
   await page.reload();
   const collaboration=task(upper(),title);
   await collaboration.waitFor();
-  assert.equal(await collaboration.getAttribute('draggable'),'false');
+  assert.equal(await collaboration.getAttribute('data-movable'),null);
   assert.equal(await collaboration.getByText('Prioritaria',{exact:true}).count(),0);
   assert.equal(await page.getByRole('button',{name:title,exact:true}).count(),1);
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');
@@ -144,7 +190,7 @@ try{
   state=execute({...state,externalProjects},'persona01',{id:'close-browser',kind:'close_week',expectedVersion:state.data.weeks.find(w=>w.id===week).version,data:{weekId:week}},now).state;
   state.data.tasks.find(t=>t.id==='normal').title='Título nuevo fuera del cierre';
   state.data.projects.find(p=>p.id==='weekly-project').title='Nombre actual del proyecto';state.data.areas.find(a=>a.id==='ssgad').name='Área renombrada después del cierre';externalProjects=externalProjects.map(p=>({...p,title:'Nombre actual del proyecto compartido',areaKeys:['ueicee']}));
-  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await lower().count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);assert.equal(await upper().getByRole('button',{name:/Detallar avance semanal/}).count(),0);
+  await page.reload();await task(upper(),'Revisar documento de prueba').waitFor();assert.equal(await lower().count(),0);assert.equal(await upper().locator('[data-movable]').count(),0);assert.equal(await upper().getByRole('button',{name:/Detallar avance semanal/}).count(),0);
   assert.equal(await task(upper(),'Preparar informe de prueba').locator('.weekly-task-project').innerText(),localProjectTitle);assert.equal(await task(upper(),'Revisar documento de prueba').locator('.weekly-task-project').innerText(),sharedProjectTitle);assert.deepEqual(await task(upper(),'Preparar informe de prueba').getByRole('list',{name:'Áreas del proyecto',exact:true}).getByRole('listitem').allTextContents(),['SSGAD','SSGDA']);
  });
  await check('El acceso pendiente de Crear proyecto abre su formulario desde Inicio',async()=>{
