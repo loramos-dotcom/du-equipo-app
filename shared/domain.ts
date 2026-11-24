@@ -5,6 +5,7 @@ import {activeTaskIssues,visibleTaskIssues,taskFollowupKey} from './task-followu
 import {resolveProjectAssignments}from'./project-assignments.ts';
 import {canEditCalendarMinutes}from'./calendar.ts';
 import {boardMeetings} from './board-followups.ts';
+import {defaultProjectPriority,projectPriorities} from './project-priority.ts';
 import type {TeamEvent}from'./calendar.ts';
 import {validateWorkGraph,workClosureProblems,workBlockers,workSnapshotRows,taskDescription,retiredWorkFields} from './work.ts';
 import {cleanView} from './saved-views.ts';
@@ -23,7 +24,7 @@ const fail=(message:string,status=422):never=>{throw new DomainError(message,sta
 const required=(v:any,label:string)=>{if(typeof v!=='string'||!v.trim())fail(`${label}: completá este campo.`);return v.trim();};
 const pick=(o:Record<string,any>,keys:string[])=>Object.fromEntries(keys.filter(k=>o[k]!==undefined).map(k=>[k,o[k]]));
 const fields:Partial<Record<Collection,string[]>>={
- projects:['manualMemberIds','manualAreaIds','title','description','outcome','kind','scope','leadId','members','intervention','areaId','areaIds','policyId','startDate','targetDate','nextStep','nextDate','nextMilestoneId','tags','documents'],
+ projects:['manualMemberIds','manualAreaIds','title','description','outcome','kind','scope','leadId','members','intervention','areaId','areaIds','policyId','startDate','targetDate','nextStep','nextDate','nextMilestoneId','tags','documents','priority'],
  tasks:['executionType','executionAreaId','referenceUrl','assignmentMode','areaId','areaIds','panelPriority','title','description','dependsOnIds','ownerId','collaborators','projectId','milestoneId','dueDate','priority','requiresValidation','validatorId','requiresEvidence','origin','originDetail','links','tags'],
  milestones:['title','description','criteria','projectId','ownerType','ownerId','areaId','contact','dueDate'],
  issues:['title','type','taskId','projectId','ownerId','dependency','impact','probability','mitigation','nextAction','followUpDate'],
@@ -278,7 +279,8 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   const values=pick(a,fields[c]!);let row=r??newRow(c,{...values}),interventionId:string|undefined;if(r)Object.assign(row,values);
   if(c==='projects'){
    required(row.title,'Nombre');required(row.outcome,'Resultado esperado');row.leadId=row.leadId??actorId;activeMember(row.leadId);row.members=[...new Set([row.leadId,...(row.members??[])])];row.members.forEach(activeMember);row.kind=row.kind??'project';row.scope=row.scope??'du';row.status=row.status??'En preparación';row.delivery=row.delivery??'Sin evaluar';row.duPriority=row.duPriority??false;row.areaIds=[...new Set([...(row.areaIds??[]),...(row.areaId?[row.areaId]:[])])];row.areaIds.forEach((id:string)=>get('areas',id));row.areaPriorities=row.areaPriorities??{};
-   if(!r)row.createdBy=actorId;
+   if(a.priority!==undefined&&!projectPriorities.some(level=>level===a.priority))fail('Elegí Baja, Media o Alta como prioridad del proyecto.');
+   if(!r){row.createdBy=actorId;row.priority??=defaultProjectPriority;}
    if(!['project','ongoing'].includes(row.kind)||!['du','area'].includes(row.scope))fail('Tipo o ámbito de proyecto inválido.');
    if(row.intervention&&!['ejecuta','coordina','acompaña'].includes(row.intervention))fail('Intervención DU inválida.');
    if(row.nextMilestoneId){const next=get('milestones',row.nextMilestoneId);if(next.projectId!==row.id)fail('El próximo hito debe pertenecer al mismo proyecto.');}

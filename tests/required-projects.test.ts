@@ -60,6 +60,22 @@ test('Los proyectos propios aparecen en el catálogo con identidad y ficha separ
  assert.equal(isMyPortfolioProject(rows[0],{directProjectIds:[rows[0].id],followedAreaKeys:[],assignments:{}} as any),true);assert.equal(rows[0].manualStatus,'pending');
 });
 
+test('La prioridad del proyecto se guarda y se valida independientemente de la marca DU',()=>{
+ let {state,projectId}=fixture();
+ const priority=()=>localPortfolioProjects(state.data.projects,state.data.members,state.data.areas)[0].priority;
+ assert.equal(state.data.projects[0].priority,'Media');
+ delete state.data.projects[0].priority;
+ assert.equal(priority(),'Media');
+ state=call(state,'update',{priority:'Baja'},'projects',projectId).state;
+ state=call(state,'set_priority',{selected:true,order:0,reason:'Seguimiento del equipo'},'projects',projectId,'persona01').state;
+ assert.equal(priority(),'Baja');
+ assert.equal(state.data.projects[0].duPriority,true);
+ state=call(state,'update',{priority:'Alta'},'projects',projectId).state;
+ assert.equal(priority(),'Alta');
+ assert.throws(()=>call(state,'update',{priority:'Urgente'},'projects',projectId),/Elegí Baja, Media o Alta/);
+ assert.equal(priority(),'Alta');
+});
+
 test('La edición rápida de texto deriva las tareas sin proyecto al dominio para aplicar la regla y no escribe por el atajo SQL',async()=>{
  const requests:string[]=[],transport:typeof fetch=async(input,init)=>{const url=String(input);requests.push(url);assert.ok(!url.includes('du_update_task_content'));return new Response(JSON.stringify({project_id:null}),{status:200,headers:{'content-type':'application/json'}});};
  const store=supabaseStore({supabaseUrl:'https://fixture.supabase.co',secretKey:'fixture-key',relational:true},transport);assert.equal(await store.updateTaskContent('fixture','persona05','verified',{id:'edit-fixture',kind:'update',entity:'tasks',entityId:'task-fixture',expectedVersion:1,data:{title:'Nuevo texto'}},[]),null);assert.equal(requests.length,1);assert.match(requests[0],/select=project_id/);

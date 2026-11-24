@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import {AvatarGroup} from './Avatar';
 import type {Row} from '../shared/model';
+import {projectPriorityLevel} from '../shared/project-priority';
 import {RichText} from './gestion/components/RichText';
 import './project-sheet.css';
 import {AreaTags} from './AreaBadge';
@@ -9,10 +10,16 @@ import {canonicalAreaKey} from './area-colors';
 export type ProjectField={label:string;value?:string;wide?:boolean;areaValues?:string[];management?:boolean};
 export type ProjectSheetContext={fields:ProjectField[];status:'active'|'pending'|'alert'|'finished';kind:'project'|'subproject';briefUrl?:string;sourceUpdates?:Row[];onEditSourceUpdate?:(id:string)=>void;onDeleteSourceUpdate?:(id:string)=>void;onResolveSourceUpdate?:(id:string)=>void;onCreateSourceUpdate?:()=>void};
 
-export function ProjectHeading({title,kind='project',status,leadName,members=[],areas=[],breadcrumb,actions}:{title:string;kind?:'project'|'subproject';status:ProjectSheetContext['status'];leadName?:string;members?:string[];areas?:string[];breadcrumb?:ReactNode;actions:ReactNode}){
+export function ProjectPriorityBadge({value,labeled=false}:{value:unknown;labeled?:boolean}){
+ const level=projectPriorityLevel(value),tones={Baja:'muted',Media:'blue',Alta:'red'};
+ if(!level)return <span className="badge muted project-priority-badge">Sin definir</span>;
+ return <span className={'badge project-priority-badge '+tones[level]}>{labeled?'Prioridad '+level.toLowerCase():level}</span>;
+}
+
+export function ProjectHeading({title,kind='project',status,priority,leadName,members=[],areas=[],breadcrumb,actions}:{title:string;kind?:'project'|'subproject';status:ProjectSheetContext['status'];priority?:string;leadName?:string;members?:string[];areas?:string[];breadcrumb?:ReactNode;actions:ReactNode}){
  const labels={active:'En curso',pending:'Pendiente',alert:'Alerta/Bloqueo',finished:'Finalizado'},tones={active:'blue',pending:'amber',alert:'red',finished:'green'};
  const people=[...new Set([leadName,...members].filter((name):name is string=>!!name))];
- return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><div className="project-sheet-meta"><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span><span className="project-sheet-lead"><span>{people.length>1?'Referentes DU:':'Referente DU:'}</span><AvatarGroup names={people}/></span></div>{areas.length>0&&<div className="project-sheet-assignment"><AreaTags aria-label="Áreas de seguimiento" areas={areas}/></div>}</div><div className="project-sheet-actions">{actions}</div></>;
+ return <><div className="project-sheet-heading">{breadcrumb}<span className="eyebrow">{kind==='subproject'?'SUBPROYECTO':'PROYECTO'}</span><h2>{title}</h2><div className="project-sheet-meta"><span className={'badge '+tones[status]}><span className="dot"/>{labels[status]}</span>{projectPriorityLevel(priority)&&<ProjectPriorityBadge value={priority} labeled/>}<span className="project-sheet-lead"><span>{people.length>1?'Referentes DU:':'Referente DU:'}</span><AvatarGroup names={people}/></span></div>{areas.length>0&&<div className="project-sheet-assignment"><AreaTags aria-label="Áreas de seguimiento" areas={areas}/></div>}</div><div className="project-sheet-actions">{actions}</div></>;
 }
 
 export function ProjectTabs({selected,onSelect,extra=[],tasks=true}:{selected:string;onSelect:(tab:string)=>void;extra?:string[];tasks?:boolean}){

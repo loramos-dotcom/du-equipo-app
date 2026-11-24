@@ -73,11 +73,11 @@ export async function managementProjectCatalog(request:Request,config:TeamConfig
  await managementRevision(session.access_token,transport);
  const rows:Row[]=[];
  for(let offset=0;;offset+=200){
-  const target=new URL('/rest/v1/projects',managementUrl);target.search=new URLSearchParams({select:'id,name,objective,report_date,status,manual_status,version,primary_area:areas!projects_primary_area_id_fkey(area_key),project_areas(area:areas!project_areas_area_id_fkey(area_key))',order:'id.asc',limit:'200',offset:String(offset)}).toString();
+  const target=new URL('/rest/v1/projects',managementUrl);target.search=new URLSearchParams({select:'id,name,objective,priority,report_date,status,manual_status,version,primary_area:areas!projects_primary_area_id_fkey(area_key),project_areas(area:areas!project_areas_area_id_fkey(area_key))',order:'id.asc',limit:'200',offset:String(offset)}).toString();
   const response=await transport(target,{headers:{apikey:managementPublishableKey,authorization:'Bearer '+session.access_token},redirect:'error'});
   if(!response.ok)throw new DomainError('No se pudo consultar el catálogo compartido.',503);
   const page=await response.json();if(!Array.isArray(page))throw new DomainError('Respuesta de proyectos inválida.',503);
-  for(const p of page){const relation=(value:any)=>Array.isArray(value)?value:value?[value]:[],areaKeys=[...new Set([...relation(p.primary_area),...relation(p.project_areas).flatMap((r:any)=>relation(r.area))].map((area:any)=>area.area_key).filter(Boolean))];rows.push({id:managementProjectRef(p.id),sourceId:p.id,external:true,version:1,sourceVersion:p.version,areaKeys,title:p.name,outcome:p.objective??'',description:'Proyecto compartido con el Tablero de Gestión.',status:p.manual_status==='finished'||p.status==='finished'?'Finalizado':'Activo',delivery:'Sin evaluar',reviewedAt:p.report_date,nextStep:'Consultar próximos pasos en el proyecto compartido',nextDate:null,documents:[],tags:[]});}
+  for(const p of page){const relation=(value:any)=>Array.isArray(value)?value:value?[value]:[],areaKeys=[...new Set([...relation(p.primary_area),...relation(p.project_areas).flatMap((r:any)=>relation(r.area))].map((area:any)=>area.area_key).filter(Boolean))];rows.push({id:managementProjectRef(p.id),sourceId:p.id,external:true,version:1,sourceVersion:p.version,areaKeys,title:p.name,priority:p.priority,outcome:p.objective??'',description:'Proyecto compartido con el Tablero de Gestión.',status:p.manual_status==='finished'||p.status==='finished'?'Finalizado':'Activo',delivery:'Sin evaluar',reviewedAt:p.report_date,nextStep:'Consultar próximos pasos en el proyecto compartido',nextDate:null,documents:[],tags:[]});}
   if(page.length<200)break;
  }
  return {rows,finish:auth.finish};
