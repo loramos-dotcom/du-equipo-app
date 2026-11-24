@@ -108,7 +108,7 @@ test('Las recurrencias abiertas de la semana aparecen para el responsable y sus 
  assert.equal(primary.selected[0].priority,false);
  assert.deepEqual(primary.rest.map(row=>row.task.id).sort(),['last-week','next-week','regular']);
  const shared=weeklyTasks(s,week,collaborator,today);
- assert.deepEqual(shared.selected.map(row=>[row.task.id,row.recurringCollaborator]),[['this-week',true]]);
+ assert.deepEqual(shared.selected.map(row=>[row.task.id,row.collaboration]),[['this-week',true]]);
  assert.equal(shared.rest.length,0);
  assert.equal(weeklyTasks(s,week,'persona02',today).selected.length,0);
  assert.deepEqual(s,before);
@@ -116,4 +116,20 @@ test('Las recurrencias abiertas de la semana aparecen para el responsable y sus 
  const moved=move(s,'this-week',false);
  assert.equal(weeklyTasks(moved,week,owner,today).selected.length,0);
  assert.deepEqual(weeklyTasks(moved,week,collaborator,today).selected.map(row=>row.task.id),['this-week']);
+});
+
+test('Las tareas abiertas que vencen en la semana se incluyen para responsable y colaboradores',()=>{
+ const s=fixture(),collaborator='persona04',current=s.data.tasks.find(task=>task.id==='normal')!;
+ Object.assign(current,{dueDate:week,collaborators:[collaborator]});
+ const withDate=(id:string,dueDate:string)=>({...current,id,code:undefined,dueDate});
+ s.data.tasks.push(withDate('last-day','2026-11-15'),withDate('past','2026-11-08'),withDate('next-week','2026-11-16'),
+  {...withDate('cancelled',week),status:'Cancelada'},{...withDate('deleted',week),deletedAt:now.toISOString()});
+ assert.deepEqual(weeklyTasks(s,week,owner,today).selected.map(row=>row.task.id),['priority','normal','last-day']);
+ assert.deepEqual(weeklyTasks(s,week,collaborator,today).selected.map(row=>[row.task.id,row.collaboration,row.priority]),
+  [['normal',true,false],['last-day',true,false]]);
+ assert.deepEqual(weeklyTasks(s,'2026-11-16',collaborator,today).selected.map(row=>row.task.id),['next-week']);
+ assert.deepEqual(weeklyTasks(s,week,'persona02',today).selected,[]);
+ const adjusted=move(s,'normal',false);
+ assert.equal(weeklyTasks(adjusted,week,owner,today).selected.some(row=>row.task.id==='normal'),false);
+ assert.equal(weeklyTasks(adjusted,week,collaborator,today).selected.some(row=>row.task.id==='normal'),true);
 });

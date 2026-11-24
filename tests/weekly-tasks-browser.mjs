@@ -3,7 +3,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {legacyInstitutionalState as institutionalState} from './helpers/legacy-team.ts';
 import {execute} from '../shared/domain.ts';
-import {dateInBA,weekStart} from '../shared/model.ts';
+import {addDays,dateInBA,weekStart} from '../shared/model.ts';
 import {api} from '../server/api.ts';
 
 const origin=process.env.DU_TEST_ORIGIN??'http://127.0.0.1:4361',now=new Date(),week=weekStart(dateInBA(now));
@@ -88,6 +88,28 @@ try{
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');await task(upper(),'Tarea de otra persona').waitFor();
   assert.equal(await upper().getByRole('button',{name:/Quitar de esta semana/}).count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
+ });
+ await check('Un vencimiento de esta semana aparece en La DU y Mi semana para responsable y colaborador',async()=>{
+  await page.setViewportSize({width:1440,height:1000});
+  const title='Revisar una entrega en conjunto';
+  state.data.tasks.push({id:'due-shared',version:1,title,code:'T104',ownerId:'persona01',collaborators:['persona05'],
+   projectId:'weekly-project',status:'Pendiente',priority:'Media',dueDate:addDays(week,1)});
+  await page.reload();
+  const collaboration=task(upper(),title);
+  await collaboration.waitFor();
+  assert.equal(await collaboration.getAttribute('draggable'),'false');
+  assert.equal(await collaboration.getByText('Prioritaria',{exact:true}).count(),0);
+  assert.equal(await page.getByRole('button',{name:title,exact:true}).count(),1);
+  await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');
+  await task(upper(),title).waitFor();
+  await page.locator('.sidebar').getByRole('button',{name:'La DU',exact:true}).click();
+  for(const id of ['persona01','persona05']){
+   const name=state.data.members.find(member=>member.id===id).name;
+   const card=page.locator('.people-card').filter({has:page.getByRole('heading',{name,exact:true})});
+   await card.getByText(title,{exact:true}).waitFor();
+  }
+  await page.locator('.sidebar').getByRole('button',{name:'Mi semana',exact:true}).click();
+  await task(upper(),title).waitFor();
  });
  await check('Una semana cerrada conserva sus tareas, títulos y bloquea el arrastre',async()=>{
   state=execute({...state,externalProjects},'persona01',{id:'close-browser',kind:'close_week',expectedVersion:state.data.weeks.find(w=>w.id===week).version,data:{weekId:week}},now).state;
