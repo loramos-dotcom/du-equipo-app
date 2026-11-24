@@ -6,16 +6,24 @@ import {weekStart,dateInBA,addDays,csv} from '../shared/model.ts';
 import type {State,Command,Collection} from '../shared/model.ts';
 const now=new Date('2026-10-19T15:00:00Z'),start='2026-10-19';
 const make=()=>seed(now);
-test('Un integrante crea un proyecto DU sin áreas o vincula su cartera; otras áreas siguen reservadas a coordinación',()=>{
- const s=make(),data={title:'Proyecto propio de prueba',outcome:'Resultado verificable para el equipo',leadId:'persona05',scope:'du'};
- const own=execute(s,'persona05',{id:'own-portfolio',kind:'create',entity:'projects',data:{...data,areaId:'universidad'}},now).state.data.projects.at(-1)!;
- assert.deepEqual(own.areaIds,['universidad']);
- assert.ok(execute(s,'persona05',{id:'without-portfolio',kind:'create',entity:'projects',data},now).result.id);
- assert.throws(()=>execute(s,'persona05',{id:'foreign-portfolio',kind:'create',entity:'projects',data:{...data,areaId:'sspie'}},now),/propia cartera/);
- assert.throws(()=>execute(s,'persona05',{id:'extra-portfolio',kind:'create',entity:'projects',data:{...data,areaId:'universidad',areaIds:['sspie']}},now),/Coordinación/);
- assert.throws(()=>execute(s,'persona05',{id:'missing-primary',kind:'create',entity:'projects',data:{...data,areaIds:['universidad']}},now),/principal/);
-});
 const cmd=(s:State,actor:string,kind:string,data:Record<string,any>={},entityId?:string,entity?:Collection,id=crypto.randomUUID(),expectedVersion?:number)=>execute(s,actor,{id,kind,data,entityId,entity,expectedVersion:expectedVersion??(entityId?s.data[entity??(kind.includes('commitment')||kind==='reschedule'?'commitments':'tasks')]?.find(r=>r.id===entityId)?.version:undefined)},now);
+test('Un integrante puede crear proyectos DU y proyectos para cualquier área',()=>{
+ const state=make(),data={title:'Proyecto de prueba',outcome:'Resultado verificable para el equipo'};
+ const own=cmd(state,'persona05','create',data,undefined,'projects').state.data.projects.at(-1)!;
+ assert.equal(own.leadId,'persona05');
+ assert.deepEqual(own.areaIds,[]);
+
+ const created=cmd(state,'persona05','create',{
+  ...data,scope:'area',leadId:'persona06',manualMemberIds:['persona05','persona06'],manualAreaIds:['sspie','universidad']
+ },undefined,'projects');
+ const project=created.state.data.projects.at(-1)!;
+ assert.equal(project.createdBy,'persona05');
+ assert.equal(project.leadId,'persona06');
+ assert.equal(project.areaId,'sspie');
+ assert.ok(project.areaIds.includes('universidad'));
+ assert.throws(()=>cmd(created.state,'persona05','update',{title:'Cambiar proyecto'},project.id,'projects'),/Solo el referente o coordinación/);
+ assert.throws(()=>cmd(state,'persona05','create',{...data,areaId:'inexistente'},undefined,'projects'),/no existe/);
+});
 test('CA41: nine nominal members, eight portfolios and independent security roles',()=>{const s=make();assert.equal(s.data.members.length,9);assert.equal(s.data.areas.length,8);assert.deepEqual(s.data.members.filter(m=>m.role==='Coordinación').map(m=>m.id),['persona01','persona02']);assert.ok(s.data.members.every(m=>m.email===null));assert.equal(s.data.projects.filter(p=>p.duPriority).length,3);});
 test('BA week interval is computed across UTC midnight and year boundaries',()=>{assert.equal(dateInBA(new Date('2026-10-20T01:00Z')),'2026-10-19');assert.equal(weekStart('2027-01-01'),'2026-12-28');assert.equal(addDays('2026-12-28',7),'2027-01-04');});
 test('CA02: inactive actor cannot read or write even when identity persists',()=>{const s=make();s.data.members.find(m=>m.id==='persona05')!.active=false;assert.throws(()=>cmd(s,'persona05','create',{title:'Tarea propia',ownerId:'persona05'},undefined,'tasks'),/acceso no está activo/i);assert.throws(()=>publicState(s,'persona05'),/desactivado/);});

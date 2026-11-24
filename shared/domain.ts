@@ -263,14 +263,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
     a.areaId=assigned.areaIds.includes(primaryArea)?primaryArea:assigned.areaIds[0]??null;
    }
 
-   if(!r&&!coord&&a.leadId&&a.leadId!==actorId)fail('Un integrante queda como referente inicial del proyecto que crea.',403);
    if(r&&!lead(r))fail('Solo el referente o coordinación puede editar el proyecto.',403);
-   if(!r&&a.scope==='area'&&a.areaId&&!areaEditor(get('areas',a.areaId)))fail('No podés crear proyectos en esa cartera.',403);
-   if(!r&&!coord&&(a.areaId||a.areaIds?.length)){
-    if(!a.areaId)fail('Elegí tu propia cartera como área implementadora principal. Para trabajo propio DU, dejá las áreas sin asignar.');
-    if(!areaEditor(get('areas',a.areaId)))fail('Solo podés vincular inicialmente tu propia cartera. Para otra área, pedí el vínculo a Coordinación.',403);
-    if((a.areaIds??[]).some((id:string)=>id!==a.areaId))fail('Vincular otras áreas involucradas requiere Coordinación.',403);
-   }
    if(r&&(('leadId' in a&&a.leadId!==r.leadId)||primaryAreaChanged||areaSelectionChanged))reason();
   }
   if(c==='tasks'){
