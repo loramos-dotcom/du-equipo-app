@@ -11,6 +11,44 @@ export async function relationalFixture(){
 }
 export async function commit(db:PGlite,delta:ReturnType<typeof stateDelta>){const values=Object.values(delta),placeholders=values.map((_,i)=>'$'+(i+1));return (await db.query<{ok:boolean}>('select public.du_commit_state('+placeholders.join(',')+') ok',values)).rows[0].ok;}
 
+test('El generador semanal de Postgres crea una tarea por lunes y conserva las entregas terminadas',async()=>{
+ const {db,state}=await relationalFixture();
+ try{
+  await db.exec(await readFile(new URL('../deploy/du-weekly-recurrences.sql',import.meta.url),'utf8'));
+  const routine={id:'weekly-test',version:1,projectId:'p1',title:'Preparar entrega semanal de prueba',
+   ownerId:'persona05',collaborators:['persona02'],frequency:'Semanal',weekday:1,generateOnDate:true,
+   active:true,startsOn:'2026-11-02',priority:'Alta'};
+  for(const row of [routine,{...routine,id:'weekly-other-project',projectId:'p2',ownerId:'persona04'},
+   {...routine,id:'weekly-paused',active:false},{...routine,id:'weekly-dismissed',dismissedDates:['2026-11-09','2026-11-16']}]){
+   await db.query('insert into public.du_recurrences(workspace_id,id,record) values($1,$2,$3)',[state.workspaceId,row.id,row]);
+  }
+  const generate=async(day:string)=>(await db.query<{created:number}>(
+   'select du_private.generate_weekly_recurrences($1,$2,$3::date) as created',[state.workspaceId,'p1',day])).rows[0].created;
+  const read=async()=>(await db.query<{stored:typeof state}>('select public.du_read_state($1) as stored',[state.workspaceId])).rows[0].stored;
+  assert.equal(await generate('2026-11-08'),0);
+  assert.equal(await generate('2026-11-09'),1);
+  const monday=await read(),first=monday.data.tasks.find(task=>task.recurrenceId===routine.id)!;
+  assert.ok(first);
+  assert.equal(monday.data.tasks.length,state.data.tasks.length+1);
+  assert.deepEqual([first.title,first.projectId,first.ownerId,first.collaborators,first.priority,first.status,first.occurrenceDate],
+   [routine.title,routine.projectId,routine.ownerId,routine.collaborators,routine.priority,'Pendiente','2026-11-09']);
+  assert.ok(monday.audit.some(entry=>entry.entity==='tasks'&&entry.entityId===first.id&&entry.action==='crear'));
+  assert.ok(monday.revision>state.revision);
+  await db.query("update public.du_tasks set record=record||jsonb_build_object('status','Terminada','completedAt','2026-11-10T12:00:00Z','version',version+1) where workspace_id=$1 and id=$2",[state.workspaceId,first.id]);
+  const finished=await read();
+  assert.equal(await generate('2026-11-09'),0);
+  assert.equal((await read()).revision,finished.revision);
+  assert.equal(await generate('2026-11-16'),1);
+  const next=await read(),occurrences=next.data.tasks.filter(task=>task.recurrenceId===routine.id);
+  assert.equal(occurrences.length,2);
+  assert.deepEqual(occurrences.find(task=>task.id===first.id),finished.data.tasks.find(task=>task.id===first.id));
+  const second=occurrences.find(task=>task.id!==first.id)!;
+  assert.equal(second.status,'Pendiente');assert.equal(second.occurrenceDate,'2026-11-16');
+  assert.notEqual(second.code,first.code);
+  assert.equal(next.data.tasks.length,state.data.tasks.length+2);
+ }finally{await db.close();}
+});
+
 test('La asignación completa crea y reutiliza proyectos, conserva tareas e historial y activa la regla en un solo commit',async()=>{
  const {db,state}=await relationalFixture();try{
   const mapping=[{code:'T106',taskTitle:state.data.tasks[5].title,projectTitle:"Línea d'ensayo",expectedVersion:1},{code:'T101',taskTitle:state.data.tasks[0].title,projectTitle:'Proyecto compartido de prueba',externalId:'00000000-0000-4000-8000-000000000099',expectedVersion:1},{code:'T103',taskTitle:state.data.tasks[2].title,projectTitle:state.data.projects[1].title,expectedVersion:1}],sql=taskProjectAssignmentSql(state.workspaceId,'persona01','project-link-fixture',mapping);
