@@ -17,7 +17,7 @@ state.data.tasks=[
  {id:'normal',version:1,title:'Revisar documento de prueba',code:'T102',ownerId:'persona05',projectId:'gestion:weekly-shared',areaIds:['ueicee'],status:'En curso',panelPriority:false,priority:'Media'},
  {id:'other',version:1,title:'Tarea de otra persona',code:'T103',ownerId:'persona01',status:'Pendiente',panelPriority:true}
 ];
-let rejectNext=false;
+let rejectNext=false,signedInAs='persona05';
 const store={load:async()=>structuredClone(state),create:async()=>{throw Error('No implicit workspace');},save:async(_key,revision,next)=>{if(state.revision!==revision)return false;state=structuredClone(next);return true;}};
 const browser=await chromium.launch({headless:true,...(process.env.DU_TEST_CHROMIUM?{executablePath:process.env.DU_TEST_CHROMIUM}:{})});
 const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],passed=[];
@@ -27,7 +27,7 @@ await context.route(origin+'/api/**',async route=>{
  if(path.startsWith('/api/gestion/'))return route.fulfill({json:{connected:true,issues:[],steps:[],updates:[],priorities:[]}});
  if(path.startsWith('/api/calendar/'))return route.fulfill({json:{configured:false,connected:false,events:[],connections:[]}});
  if(path==='/api/command'&&rejectNext&&request.postDataJSON()?.kind==='select_week_task'){rejectNext=false;return route.fulfill({status:409,json:{error:'El plan cambió. Actualizá la semana antes de mover la tarea.'}});}
- const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,'weekly-board',{mode:'team',identity:{id:'verified-persona05',email:'persona05@example.edu',provider:'google',verified:true},externalProjects});
+ const response=await api(new Request(request.url(),{method:request.method(),headers:request.headers(),...(request.postData()?{body:request.postData()}:{})}),store,'weekly-board',{mode:'team',identity:{id:'verified-'+signedInAs,email:signedInAs+'@example.edu',provider:'google',verified:true},externalProjects});
  await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
 });
 const upper=()=>page.getByRole('region',{name:'Tareas de la semana',exact:true}),lower=()=>page.getByRole('region',{name:'Resto de tareas',exact:true});
@@ -84,10 +84,39 @@ try{
   await lower().getByRole('button',{name:'Agregar a esta semana: Revisar documento de prueba',exact:true}).click();await task(upper(),'Revisar documento de prueba').waitFor();await settle();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await task(upper(),'Revisar documento de prueba').evaluate(row=>row.scrollWidth<=row.clientWidth));await page.screenshot({path:'test-results/weekly-mobile.png',fullPage:true});
  });
- await check('Los planes de otras personas quedan de solo lectura en el tablero',async()=>{
+ await check('Los integrantes sin rol de Coordinación solo consultan los planes ajenos',async()=>{
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona01');await task(upper(),'Tarea de otra persona').waitFor();
   assert.equal(await upper().getByRole('button',{name:/Quitar de esta semana/}).count(),0);assert.equal(await upper().locator('[draggable="true"]').count(),0);
   await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
+ });
+ await check('Coordinación puede mover tareas de un plan ajeno con un motivo en el historial',async()=>{
+  signedInAs='persona01';
+  await page.setViewportSize({width:1440,height:1000});await page.reload();
+  await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
+  const title='Preparar informe de prueba',reason='Ajustar la carga de la semana',before=structuredClone(state.data.tasks.find(t=>t.id==='priority'));
+  const taskInWeek=task(upper(),title),taskInRest=task(lower(),title),dialog=page.getByRole('dialog',{name:'Quitar de esta semana',exact:true});
+  await taskInWeek.getByRole('button',{name:'Quitar de esta semana: '+title,exact:true}).click();
+  await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();
+  await taskInWeek.waitFor();
+  assert.equal(state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week).taskSelections.priority,true);
+  await taskInWeek.dragTo(lower());
+  const reasonField=dialog.getByLabel('Motivo del cambio',{exact:true});
+  assert.equal(await reasonField.getAttribute('required'),'');
+  await reasonField.fill(reason);
+  await dialog.getByRole('button',{name:'Quitar de esta semana',exact:true}).click();
+  await taskInRest.waitFor();
+  const plan=state.data.plans.find(p=>p.ownerId==='persona05'&&p.weekId===week);
+  assert.equal(plan.taskSelections.priority,false);
+  assert.deepEqual(state.data.tasks.find(t=>t.id==='priority'),before);
+  assert.ok(state.audit.some(entry=>entry.entity==='plans'&&entry.entityId===plan.id&&entry.actorId==='persona01'&&entry.reason===reason));
+  await page.reload();
+  await page.getByRole('combobox',{name:'Dueño del plan semanal',exact:true}).selectOption('persona05');
+  await taskInRest.getByRole('button',{name:'Agregar a esta semana: '+title,exact:true}).click();
+  const addDialog=page.getByRole('dialog',{name:'Agregar a esta semana',exact:true});
+  await addDialog.getByLabel('Motivo del cambio',{exact:true}).fill('Volver a incluir el informe');
+  await addDialog.getByRole('button',{name:'Agregar a esta semana',exact:true}).click();
+  await taskInWeek.waitFor();
+  signedInAs='persona05';await page.reload();await taskInWeek.waitFor();
  });
  await check('Un vencimiento de esta semana aparece en La DU y Mi semana para responsable y colaborador',async()=>{
   await page.setViewportSize({width:1440,height:1000});

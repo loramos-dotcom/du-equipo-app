@@ -8,14 +8,14 @@ import {managementAreaKey} from '../shared/project-portfolios';
 import {projectAreaLabels} from './gestion/du-portfolio';
 import {AreaBadge} from './AreaBadge';
 
-type Props={selected:WeekTask[];rest:WeekTask[];projects:Row[];areas:Row[];editable:boolean;closed:boolean;onMove:(task:Row,selected:boolean)=>Promise<void>;onOpen:(task:Row)=>void;onAdvance:(row:WeekTask)=>void;status:(value:string)=>ReactNode};
+type Props={selected:WeekTask[];rest:WeekTask[];projects:Row[];areas:Row[];editable:boolean;closed:boolean;onMove?:(task:Row,selected:boolean)=>Promise<boolean>;onOpen:(task:Row)=>void;onAdvance:(row:WeekTask)=>void;status:(value:string)=>ReactNode};
 const dragType='application/x-du-week-task';
 export default function WeeklyTasks({selected,rest,projects,areas,editable,closed,onMove,onOpen,onAdvance,status}:Props){
  const [dragged,setDragged]=useState(''),[target,setTarget]=useState<'week'|'rest'|null>(null),[pending,setPending]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function move(row:WeekTask,toWeek:boolean){
-  if(!editable||pending)return;
+  if(!onMove||pending)return;
   setError('');setPending(row.task.id);setDragged('');setTarget(null);
-  try{await onMove(row.task,toWeek);setNotice(row.task.title+(toWeek?' agregada a la semana.':' movida al resto de tareas.'));}
+  try{if(await onMove(row.task,toWeek))setNotice(row.task.title+(toWeek?' agregada a la semana.':' movida al resto de tareas.'));}
   catch(e){setError((e as Error).message);}
   finally{setPending('');}
  }
@@ -25,11 +25,12 @@ export default function WeeklyTasks({selected,rest,projects,areas,editable,close
   if(row&&!row.collaboration&&(toWeek||!row.commitment))void move(row,toWeek);
  }
  function over(event:DragEvent,toWeek:boolean){
-  if(!editable||pending||!Array.from(event.dataTransfer.types).includes(dragType))return;
+  if(!onMove||pending||!Array.from(event.dataTransfer.types).includes(dragType))return;
   event.preventDefault();event.dataTransfer.dropEffect='move';setTarget(toWeek?'week':'rest');
  }
  function row(item:WeekTask,inWeek:boolean){
-  const t=item.task,open=!t.archived&&!['Terminada','Cancelada'].includes(t.status),canPlanTask=editable&&open&&!item.collaboration,movable=canPlanTask&&(!inWeek||!item.commitment);
+  const t=item.task,open=!t.archived&&!['Terminada','Cancelada'].includes(t.status),canAdjust=open&&!item.collaboration;
+  const canPlanTask=editable&&canAdjust,movable=!!onMove&&canAdjust&&(!inWeek||!item.commitment);
   const project=projects.find(p=>p.id===t.projectId),areaIds=[...(project?.areaIds??[]),...(project?.areaId?[project.areaId]:[])];
   const areaKeys=[...new Set<string>([...areaIds.map(managementAreaKey),...(project?.areaKeys??[])])];
   const projectAreas=areaKeys.map(key=>({key,name:areas.find(area=>managementAreaKey(area.id)===key)?.name??projectAreaLabels[key]})).filter(area=>!!area.name);
@@ -43,7 +44,7 @@ export default function WeeklyTasks({selected,rest,projects,areas,editable,close
   {error&&<p className="form-error" role="alert">{error}</p>}<span className="sr-only" role="status">{notice}</span>
   <section className={'weekly-task-section weekly-selected'+(target==='week'?' is-drop-target':'')} aria-label="Tareas de la semana" onDragOver={event=>over(event,true)} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setTarget(null);}} onDrop={event=>drop(event,true)}>
    <div className="section-heading"><h2>Tareas de la semana <span>{selected.length}</span></h2></div>
-   {selected.length?<div className="weekly-task-list">{selected.map(item=>row(item,true))}</div>:<p className="weekly-task-empty">{closed?'Sin tareas registradas.':editable?'Arrastrá una tarea a esta semana.':'Sin tareas seleccionadas.'}</p>}
+   {selected.length?<div className="weekly-task-list">{selected.map(item=>row(item,true))}</div>:<p className="weekly-task-empty">{closed?'Sin tareas registradas.':onMove?'Arrastrá una tarea a esta semana.':'Sin tareas seleccionadas.'}</p>}
   </section>
   {!closed&&<section className={'weekly-task-section weekly-rest'+(target==='rest'?' is-drop-target':'')} aria-label="Resto de tareas" onDragOver={event=>over(event,false)} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setTarget(null);}} onDrop={event=>drop(event,false)}>
    <div className="section-heading"><h2>Resto de tareas <span>{rest.length}</span></h2></div>
