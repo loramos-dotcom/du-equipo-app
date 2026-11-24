@@ -106,7 +106,7 @@ try{
    const boardsHeading=element.querySelector('.people-boards h3').getBoundingClientRect();
    return {gap:boardsHeading.top-task.bottom,footer:element.querySelector('.people-card-footer').getBoundingClientRect().bottom};
   });
-  assert.ok(bodyGeometry.gap>=0&&bodyGeometry.gap<=20);
+  assert.ok(bodyGeometry.gap>=20&&bodyGeometry.gap<=32);
   const footer=page.getByRole('article').filter({has:page.getByRole('heading',{name:known.name,exact:true})}).locator('footer');
   assert.equal((await footer.boundingBox()).y+(await footer.boundingBox()).height,bodyGeometry.footer);
   await page.locator('.people-grid').screenshot({path:'test-results/la-du-tarjetas-escritorio.png'});
