@@ -7,7 +7,7 @@ export function completedInWeek(task:Row,weekId:string){
  const completedAt=new Date(task.completedAt);if(!Number.isFinite(completedAt.getTime()))return false;
  const date=dateInBA(completedAt);return date>=weekId&&date<addDays(weekId,7);
 }
-export type WeekTask={task:Row;commitment?:Row;priority:boolean;recurringCollaborator?:boolean};
+export type WeekTask={task:Row;commitment?:Row;priority:boolean;collaboration?:boolean};
 export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateInBA(),historical?:any){
  const week=state.data.weeks.find(w=>w.id===weekId),closed=week?.status==='Cerrada';
  const snapshot=historical??(closed?state.snapshots.find(s=>s.kind==='week'&&s.targetId===weekId&&s.version===week.closeVersion)?.payload:null);
@@ -23,17 +23,17 @@ export function weeklyTasks(state:State,weekId:string,ownerId:string,today=dateI
   if(task.deletedAt)continue;
   const commitment=commitments.find(c=>c.taskId===task.id),own=task.ownerId===ownerId;
   const recursThisWeek=!!task.recurrenceId&&typeof task.occurrenceDate==='string'&&task.occurrenceDate>=weekId&&task.occurrenceDate<nextWeek;
-  const recurringCollaborator=!own&&recursThisWeek&&(task.collaborators??[]).includes(ownerId);
-  if(!own&&!commitment&&!recurringCollaborator&&!fixed?.has(task.id))continue;
+  const dueThisWeek=typeof task.dueDate==='string'&&task.dueDate>=weekId&&task.dueDate<nextWeek;
+  const collaboration=!own&&(recursThisWeek||dueThisWeek)&&task.collaborators?.includes(ownerId);
+  if(!own&&!commitment&&!collaboration&&!fixed?.has(task.id))continue;
   const priority=panelPriority(task,{...state,data:{...state.data,commitments}},weekId)||!!commitment?.isPriority;
   if(fixed){if(fixed.has(task.id))chosen.push({task,commitment,priority});continue;}
   const open=!task.archived&&!['Terminada','Cancelada'].includes(task.status);
   const completed=completedInWeek(task,weekId);
   const selected=Object.hasOwn(selections,task.id)?selections[task.id]===true:null;
-  const boardPrepThisWeek=typeof task.boardMeetingDate==='string'&&task.dueDate>=weekId&&task.dueDate<nextWeek;
-  const automatic=(recursThisWeek||boardPrepThisWeek||currentOrFuture&&priority)&&(open||completed)&&!task.archived;
+  const automatic=(recursThisWeek||dueThisWeek||currentOrFuture&&priority)&&(open||completed)&&!task.archived;
   if(commitment||own&&completed||!task.archived&&(selected===true||selected!==false&&automatic)){
-   chosen.push({task,commitment,priority,...(recurringCollaborator?{recurringCollaborator:true}:{})});
+   chosen.push({task,commitment,priority,...(collaboration?{collaboration:true}:{})});
   }
   else if(own&&open)rest.push({task,priority});
  }

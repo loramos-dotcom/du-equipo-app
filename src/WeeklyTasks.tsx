@@ -22,14 +22,14 @@ export default function WeeklyTasks({selected,rest,projects,areas,editable,close
  function drop(event:DragEvent,toWeek:boolean){
   event.preventDefault();setTarget(null);
   const id=event.dataTransfer.getData(dragType),row=(toWeek?rest:selected).find(row=>row.task.id===id);
-  if(row&&!row.recurringCollaborator&&(toWeek||!row.commitment))void move(row,toWeek);
+  if(row&&!row.collaboration&&(toWeek||!row.commitment))void move(row,toWeek);
  }
  function over(event:DragEvent,toWeek:boolean){
   if(!editable||pending||!Array.from(event.dataTransfer.types).includes(dragType))return;
   event.preventDefault();event.dataTransfer.dropEffect='move';setTarget(toWeek?'week':'rest');
  }
  function row(item:WeekTask,inWeek:boolean){
-  const t=item.task,open=!t.archived&&!['Terminada','Cancelada'].includes(t.status),canPlanTask=editable&&open&&!item.recurringCollaborator,movable=canPlanTask&&(!inWeek||!item.commitment);
+  const t=item.task,open=!t.archived&&!['Terminada','Cancelada'].includes(t.status),canPlanTask=editable&&open&&!item.collaboration,movable=canPlanTask&&(!inWeek||!item.commitment);
   const project=projects.find(p=>p.id===t.projectId),areaIds=[...(project?.areaIds??[]),...(project?.areaId?[project.areaId]:[])];
   const areaKeys=[...new Set<string>([...areaIds.map(managementAreaKey),...(project?.areaKeys??[])])];
   const projectAreas=areaKeys.map(key=>({key,name:areas.find(area=>managementAreaKey(area.id)===key)?.name??projectAreaLabels[key]})).filter(area=>!!area.name);

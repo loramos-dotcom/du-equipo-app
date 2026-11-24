@@ -332,7 +332,8 @@ export default function App(){
  const selectedWeek=d.weeks.find(w=>w.id===week),weekClosed=selectedWeek?.status==='Cerrada',weekSnapshot=s.snapshots.filter(sn=>sn.kind==='week'&&sn.targetId===week).find(sn=>sn.version===(snapshotVersion||selectedWeek?.closeVersion));
  const weekData=weekClosed&&weekSnapshot?weekSnapshot.payload:null,weekCommitments=(weekData?.commitments??d.commitments).filter((c:Row)=>c.weekId===week&&c.ownerId===owner),plan=(weekData?.plans??d.plans).find((p:Row)=>p.weekId===week&&p.ownerId===owner),ownWeek=owner===actorId||coord;
  const weeklyBoard=weeklyTasks(s,week,owner,today,weekData);
- const weekCollaborations=d.tasks.filter(t=>!t.archived&&t.collaborators?.includes(owner)&&!closedTasks.includes(t.status));
+ const selectedWeekTaskIds=new Set(weeklyBoard.selected.map(row=>row.task.id));
+ const weekCollaborations=d.tasks.filter(t=>!t.archived&&t.collaborators?.includes(owner)&&!closedTasks.includes(t.status)&&!selectedWeekTaskIds.has(t.id));
  async function moveWeekTask(t:Row,selected:boolean){await command({kind:'select_week_task',expectedVersion:t.version,data:{taskId:t.id,weekId:week,selected,planVersion:plan?.version??null}});}
  const searchResults=search.trim()?(['projects','tasks','commitments','areas','members','issues','interventions','decisions'] as Collection[]).flatMap(entity=>d[entity].filter(r=>!r.archived&&normalize(entity==='tasks'?workSearchText(d.tasks,r):[r.title,r.name,r.description,r.text,r.request,r.result,r.responsibilities,r.taskId?task(r.taskId)?.title:''].join(' ')).includes(normalize(search))).map(row=>({entity,row}))):[];
  function issueCards(rows:Row[]){
