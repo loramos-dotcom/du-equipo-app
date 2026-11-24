@@ -23,6 +23,7 @@ export class DomainError extends Error {status:number;constructor(message:string
 const fail=(message:string,status=422):never=>{throw new DomainError(message,status);};
 const required=(v:any,label:string)=>{if(typeof v!=='string'||!v.trim())fail(`${label}: completá este campo.`);return v.trim();};
 const pick=(o:Record<string,any>,keys:string[])=>Object.fromEntries(keys.filter(k=>o[k]!==undefined).map(k=>[k,o[k]]));
+const sameIds=(left:string[],right:string[])=>new Set(left).size===new Set(right).size&&left.every(id=>right.includes(id));
 const fields:Partial<Record<Collection,string[]>>={
  projects:['manualMemberIds','manualAreaIds','title','description','outcome','kind','scope','leadId','members','intervention','areaId','areaIds','policyId','startDate','targetDate','nextStep','nextDate','nextMilestoneId','tags','documents','priority'],
  tasks:['executionType','executionAreaId','referenceUrl','assignmentMode','areaId','areaIds','panelPriority','title','description','dependsOnIds','ownerId','collaborators','projectId','milestoneId','dueDate','priority','requiresValidation','validatorId','requiresEvidence','origin','originDetail','links','tags'],
@@ -243,7 +244,24 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
   if(c==='members'||c==='catalogs'){checkCoord();if(r)reason();}
   if(c==='areas'){if(r){if(!areaEditor(r))fail('No sos referente de esta cartera.',403);if(!coord&&['leadId','substitutes','parentId','active','name','acronym'].some(k=>k in a&&JSON.stringify(a[k])!==JSON.stringify(r[k])))fail('La estructura de áreas corresponde a coordinación.',403);reason();}else checkCoord();}
   if(c==='projects'){
-   if(a.manualMemberIds!==undefined||a.manualAreaIds!==undefined){if(!Array.isArray(a.manualMemberIds??[])||!Array.isArray(a.manualAreaIds??[]))fail('Elegí personas y áreas válidas.');const assigned=resolveProjectAssignments(s,a.manualMemberIds??a.members??r?.members??[],a.manualAreaIds??a.areaIds??r?.areaIds??[],today);Object.assign(a,assigned);if(!assigned.areaIds.includes(a.areaId))a.areaId=assigned.areaIds[0]??null;}
+   const previousAreas=r?.areaIds??(r?.areaId?[r.areaId]:[]);
+   const primaryAreaChanged=!!r&&'areaId' in a&&(a.areaId??null)!==(r.areaId??null);
+   let areaSelectionChanged=!!r&&'areaIds' in a&&!sameIds(a.areaIds,previousAreas);
+   if(a.manualMemberIds!==undefined||a.manualAreaIds!==undefined){
+    if(!Array.isArray(a.manualMemberIds??[])||!Array.isArray(a.manualAreaIds??[]))fail('Elegí personas y áreas válidas.');
+    const previousManualAreas=r?.manualAreaIds??previousAreas;
+    const previousManualMembers=r?.manualMemberIds??r?.members??[];
+    const manualAreas=a.manualAreaIds??a.areaIds??previousManualAreas;
+    const assigned=resolveProjectAssignments(s,a.manualMemberIds??a.members??previousManualMembers,manualAreas,today);
+    areaSelectionChanged=!!r&&!sameIds(manualAreas,previousManualAreas);
+    if(r&&!areaSelectionChanged&&!primaryAreaChanged){
+     const previous=resolveProjectAssignments(s,previousManualMembers,previousManualAreas,today);
+     if(sameIds(assigned.areaIds,previous.areaIds))assigned.areaIds=previousAreas;
+    }
+    Object.assign(a,assigned);
+    const primaryArea='areaId' in a?a.areaId:r?.areaId;
+    a.areaId=assigned.areaIds.includes(primaryArea)?primaryArea:assigned.areaIds[0]??null;
+   }
 
    if(!r&&!coord&&a.leadId&&a.leadId!==actorId)fail('Un integrante queda como referente inicial del proyecto que crea.',403);
    if(r&&!lead(r))fail('Solo el referente o coordinación puede editar el proyecto.',403);
@@ -253,7 +271,7 @@ export function execute(input:State,actorId:string,command:Command,now=new Date(
     if(!areaEditor(get('areas',a.areaId)))fail('Solo podés vincular inicialmente tu propia cartera. Para otra área, pedí el vínculo a Coordinación.',403);
     if((a.areaIds??[]).some((id:string)=>id!==a.areaId))fail('Vincular otras áreas involucradas requiere Coordinación.',403);
    }
-   if(r&&['leadId','areaId','areaIds'].some(k=>k in a&&JSON.stringify(a[k])!==JSON.stringify(r[k]))){if(!lead(r))checkCoord();reason();}
+   if(r&&(('leadId' in a&&a.leadId!==r.leadId)||primaryAreaChanged||areaSelectionChanged))reason();
   }
   if(c==='tasks'){
    if(a.parentTaskId!==undefined&&a.parentTaskId!==null&&a.parentTaskId!=='')fail('Las subtareas ya no están disponibles. Usá una tarea y su descripción. Recargá la app para continuar.');

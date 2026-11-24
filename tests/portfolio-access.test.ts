@@ -76,6 +76,20 @@ test('Un proyecto propio DU también guarda las asignaciones automáticas y rech
  assert.deepEqual(project.members,['persona06']);assert.deepEqual(project.areaIds,['sstedu']);assert.equal(project.areaId,'sstedu');
  assert.throws(()=>call(state,'persona01','create',{title:'Solicitud inválida',outcome:'No debe guardarse',manualMemberIds:'persona06',manualAreaIds:[]},'projects'),/personas y áreas válidas/);
 });
+test('Quitar un participante no pide motivo cuando su referente y sus áreas elegidas siguen iguales',()=>{
+ const state=seed(now),project={id:'membership-project',version:1,title:'Proyecto de infraestructura de prueba',outcome:'Resultado verificable',
+  leadId:'persona06',members:['persona01','persona06'],manualMemberIds:['persona01','persona06'],areaId:'sstedu',areaIds:['sstedu'],manualAreaIds:['sstedu']};
+ state.data.projects.push(project);
+ const change={...resolveProjectAssignments(state,['persona06'],['sstedu'],now.toISOString().slice(0,10)),areaId:project.areaId,leadId:project.leadId};
+ assert.ok(change.areaIds.includes('ueicee'));
+ const update=(data:Record<string,unknown>,actor='persona01')=>call(state,actor,'update',data,'projects',project.id,project.version).state;
+ const updated=update(change).data.projects.find(row=>row.id===project.id)!;
+ assert.deepEqual(updated.members,['persona06']);assert.deepEqual(updated.manualMemberIds,['persona06']);
+ assert.deepEqual(updated.areaIds,['sstedu']);assert.equal(updated.areaId,'sstedu');assert.equal(updated.leadId,'persona06');
+ assert.throws(()=>update({...change,manualAreaIds:['sstedu','ueicee']}),/Motivo/);
+ assert.throws(()=>update({...change,leadId:'persona05'}),/Motivo/);
+ assert.throws(()=>update(change,'persona05'),/Solo el referente/);
+});
 test('El historial paginado comprueba propiedad en Postgres antes de contar o devolver registros',async()=>{
  const db=new PGlite();try{await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create role supabase_auth_admin;');await db.exec(await readFile('supabase/schemas/du_equipo.sql','utf8'));let state=seed(now);state=call(state,'persona01','create',{targetType:'issues',targetId:'i2',body:'Comentario de otro responsable'},'comments').state;state=call(state,'persona05','issue_status',{status:'En tratamiento'},undefined,'i1',1).state;
  state.accessMode='institutional';await db.query('insert into public.du_workspaces(id,revision,payload)values($1,$2,$3)',[state.workspaceId,state.revision,state]);await db.exec('begin;'+await readFile('deploy/du-relational-migration.sql','utf8')+'commit;');await db.exec(await readFile('deploy/du-issue-visibility.sql','utf8'));
