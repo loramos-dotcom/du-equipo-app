@@ -5,10 +5,9 @@ import {projectPriorityLevel} from '../shared/project-priority';
 import {RichText} from './gestion/components/RichText';
 import './project-sheet.css';
 import {AreaTags} from './AreaBadge';
-import {canonicalAreaKey} from './area-colors';
 import {ProjectPendingTasks} from './ProjectTaskGroups';
 
-export type ProjectField={label:string;value?:string;wide?:boolean;areaValues?:string[];management?:boolean};
+export type ProjectField={label:string;value?:string;wide?:boolean;management?:boolean};
 export type ProjectSheetContext={fields:ProjectField[];status:'active'|'pending'|'alert'|'finished';kind:'project'|'subproject';briefUrl?:string;sourceUpdates?:Row[];onEditSourceUpdate?:(id:string)=>void;onDeleteSourceUpdate?:(id:string)=>void;onResolveSourceUpdate?:(id:string)=>void;onCreateSourceUpdate?:()=>void};
 
 export function ProjectPriorityBadge({value,labeled=false}:{value:unknown;labeled?:boolean}){
@@ -29,11 +28,10 @@ export function ProjectTabs({selected,onSelect,extra=[],tasks=true}:{selected:st
 }
 
 const managementLabels=new Set(['Unidad responsable en el Tablero','Prioridad','Prioridad del área','Inicio original','Fin original','Inicio reprogramado','Fin reprogramado','Presupuesto','Mechi','MECHI','Última actualización','Ámbito de gestión','Intervención DU']);
-function sameAreas(values:string[],areas:string[]){const first=new Set(values.map(canonicalAreaKey)),second=new Set(areas.map(canonicalAreaKey));return first.size===second.size&&[...first].every(key=>second.has(key));}
-export function ProjectSummary({fields,areas=[],tasks,onOpenTask}:{fields:ProjectField[];areas?:string[];tasks?:Row[];onOpenTask?:(taskId:string)=>void}){
- const visible=fields.filter(field=>field.value&&!(field.areaValues?.length&&areas.length&&sameAreas(field.areaValues,areas)));
+export function ProjectSummary({fields,tasks,onOpenTask}:{fields:ProjectField[];tasks?:Row[];onOpenTask?:(taskId:string)=>void}){
+ const visible=fields.filter(field=>field.value);
  const main=visible.filter(field=>!(field.management??managementLabels.has(field.label))),management=visible.filter(field=>field.management??managementLabels.has(field.label));
- const grid=(items:ProjectField[])=><dl className="project-sheet-grid">{items.map(field=><div key={field.label} className={field.wide||['Resultado esperado','Descripción','Notas','Justificación','Alcance'].includes(field.label)?'wide':''}><dt>{field.label}</dt><dd>{field.areaValues?.length?<AreaTags areas={field.areaValues}/>:<RichText value={field.value!}/>}</dd></div>)}</dl>;
+ const grid=(items:ProjectField[])=><dl className="project-sheet-grid">{items.map(field=><div key={field.label} className={field.wide||['Resultado esperado','Descripción','Notas','Justificación','Alcance'].includes(field.label)?'wide':''}><dt>{field.label}</dt><dd><RichText value={field.value!}/></dd></div>)}</dl>;
  return <>{main.length>0&&grid(main)}{tasks&&onOpenTask&&<ProjectPendingTasks rows={tasks} onOpen={onOpenTask}/>}
   {management.length>0&&<details className="project-management-data"><summary>Datos de gestión</summary>{grid(management)}</details>}
  </>;
